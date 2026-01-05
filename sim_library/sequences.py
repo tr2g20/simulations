@@ -105,6 +105,19 @@ class PulseSequence:
             self.pulses.append(pulse_object)
         else:
             raise TypeError("Only Pulse objects (or subclasses) can be added.")
+    
+    def get_total_duration(self):
+        """
+        Sums the durations of all the individual pulses in the pulse sequence
+
+        Raises:
+            TypeError: If the object added is not a Pulse object.
+        """
+        duration = 0
+        if len(self.pulses) != 0:
+            for pulse in self.pulses:
+                duration += pulse.duration
+        return duration
         
 def gen_resonant_pm_seq(no_pulses: int, rabi_freq: float, p_start: int = 0, dir: str = 'pos') -> PulseSequence:
     """

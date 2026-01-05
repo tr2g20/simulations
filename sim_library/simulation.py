@@ -28,10 +28,14 @@ def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int,
 
     Raises:
         TypeError: If initial_state is not a complex np.ndarray.
+        ValueError: If list of pulses is empty.
     """
     # Checks the initial state vector is a complex np.ndarray
     if not np.issubdtype(initial_state.dtype, np.complexfloating):
         raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
+
+    if len(pulse_seq.pulses) <= 0:
+        raise ValueError("List of pulses is empty")
 
     # Defines a new random number generator and saves the state (to be returned), which contains the seed
     rng = np.random.default_rng()
