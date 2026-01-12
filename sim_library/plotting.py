@@ -46,7 +46,7 @@ def plot_hist(ax: Axes, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, n_
     ax.set_xlabel(r"Momentum ($\hbar k_{eff}$)")
     ax.legend()
 
-def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, wavefunc: np.ndarray, times: np.ndarray, basis: np.ndarray, frame_interval: float, pause_time: float):
+def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, wavefunc: np.ndarray, times: np.ndarray, basis: np.ndarray, frame_interval: float, pause_time: float, mom_ylim: float):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 7.5), layout= 'constrained')
 
     def update(frame):
@@ -59,7 +59,7 @@ def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int
         ax1.set_ylabel('Probability Amplitude')
         ax1.set_xlabel(r'Time ($\mu s$)')
         ax1.set_title(f'State amplitudes at time {times[frame]*1e6:.1f}')
-        ax2.set_ylim(0, 2)
+        ax2.set_ylim(0, mom_ylim)
         ax2.set_xlabel(r"Momentum ($\hbar k_{eff}$)")
         ax2.set_ylabel("Probability Density")
         ax2.set_title(f"Momentum distribution at time {times[frame]*1e6:.1f}")
