@@ -236,21 +236,34 @@ class PulseSequence:
     def __init__(self):
         self.pulses = []
 
-    def add_pulse(self, pulse_object):
+    def add_pulses(self, pulse_object):
         """
-        Adds a single Pulse object to the end of the sequence.
+        Appends Pulses to the PulseSequence.
 
         Args:
-            pulse_object (PulseSubclass): An instance of Pulse, UpPulse, DownPulse, or FreeEvolution.
+            pulse_object (Pulse | PulseSequence | list[Pulse | PulseSequence]): Can be a Pulse, a PulseSequence or a list of either.
 
         Raises:
-            TypeError: If the object added is not a Pulse object.
+            TypeError: If the object added is not a Pulse or PulseSequence object.
         """
         if isinstance(pulse_object, Pulse):
             self.pulses.append(pulse_object)
+        elif isinstance(pulse_object, list):
+            for pulse in pulse_object:
+                self.add_pulses(pulse)
+        elif isinstance(pulse_object, PulseSequence):
+            for pulse in pulse_object.pulses:
+                self.pulses.append(pulse)
         else:
-            raise TypeError("Only Pulse objects (or subclasses) can be added.")
+            raise TypeError("Only Pulse or PulseSequence objects can be added.")
     
+    def list_pulses(self):
+        """
+        Prints the type of each pulse as a string
+        """
+        for pulse in self.pulses:
+            print(pulse.type)
+
     def get_n_steps(self):
         """
         Calculates the number of time steps in the whole pulse sequence.
@@ -320,10 +333,10 @@ def gen_resonant_pm_seq(no_pulses: int, rabi_freq: float, n_steps: int, p_start:
     for n in range(shift, no_pulses + shift):
         if n % 2 == 0:
             detunings = np.full(n_steps, (2*p + 1)*dR)
-            pulse_seq.add_pulse(UpPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
+            pulse_seq.add_pulses(UpPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
         else:
             detunings = np.full(n_steps, -1*(2*p + 1)*dR)
-            pulse_seq.add_pulse(DownPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
+            pulse_seq.add_pulses(DownPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
         p += (-1)**shift
 
     return pulse_seq
@@ -366,18 +379,26 @@ def gen_offresonant_pm_seq(no_pulses: int, rabi_freq: float, n_steps: int, p_sta
 
     for n in range(shift, no_pulses + shift):
         if n % 2 == 0:
-            pulse_seq.add_pulse(UpPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
+            pulse_seq.add_pulses(UpPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
         else:
-            pulse_seq.add_pulse(DownPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
+            pulse_seq.add_pulses(DownPulse(laser_det=detunings, phase=phases, rabi_freq=rabi_frequencies, duration=pi/rabi_freq))
     
     return pulse_seq
 
 def gen_resonant_pm_seq_fast(no_pulses: int, rabi_freq: float, n_steps: int, p_start: int = 0, dir: str = 'pos'):
+    """
+    Generates PulseSequence based on parameters and also a copy of this that only has one time step per pulse. 
+    This useful for when you want to plot the state trajectories and the initial and final momentum distribution
+    at the same time without taking as long to simulate each intermediate momentum distribution.
+    """
     pulse_seq = gen_resonant_pm_seq(no_pulses=no_pulses, rabi_freq=rabi_freq, n_steps=n_steps, p_start=p_start, dir=dir)
     pulse_seq_fast = gen_resonant_pm_seq(no_pulses=no_pulses, rabi_freq=rabi_freq, n_steps=1, p_start=p_start, dir=dir)
     return pulse_seq, pulse_seq_fast
 
 def gen_offresonant_pm_seq_fast(no_pulses: int, rabi_freq: float, n_steps: int, p_start: int = 0, dir: str = 'pos'):
+    """
+    Same as gen_resonant_pm_seq_fast but for an off resonant sequence.
+    """
     pulse_seq = gen_offresonant_pm_seq(no_pulses=no_pulses, rabi_freq=rabi_freq, n_steps=n_steps, p_start=p_start, dir=dir)
     pulse_seq_fast = gen_offresonant_pm_seq(no_pulses=no_pulses, rabi_freq=rabi_freq, n_steps=1, p_start=p_start, dir=dir)
     return pulse_seq, pulse_seq_fast

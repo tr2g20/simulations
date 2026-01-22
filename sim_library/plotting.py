@@ -58,11 +58,11 @@ def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int
         ax1.legend(basis, loc='upper left')
         ax1.set_ylabel('Probability Amplitude')
         ax1.set_xlabel(r'Time ($\mu s$)')
-        ax1.set_title(f'State amplitudes at time {times[frame]*1e6:.1f}')
+        ax1.set_title(rf'State amplitudes at time {times[frame]*1e6:.1f}$\mu$s')
         ax2.set_ylim(0, mom_ylim)
         ax2.set_xlabel(r"Momentum ($\hbar k_{eff}$)")
         ax2.set_ylabel("Probability Density")
-        ax2.set_title(f"Momentum distribution at time {times[frame]*1e6:.1f}")
+        ax2.set_title(rf"Momentum distribution at time {times[frame]*1e6:.1f}$\mu$")
         ax2.hist(x= mom_vals, weights= fracs[frame], bins = n_bins, histtype='step', density=True)
 
     n_frames = len(fracs)
