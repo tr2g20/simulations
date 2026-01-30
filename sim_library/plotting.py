@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.animation import FuncAnimation
+from qutip import Bloch, Qobj, sigmax, sigmay, sigmaz, expect
 
 
 def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarray, basis: np.ndarray, title: str = 'State trajectories', contains_title: bool = True):
@@ -73,3 +74,43 @@ def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int
 
     ani = FuncAnimation(fig, update, frames=frame_indices, interval= frame_interval)
     ani.save(filename, writer='pillow')
+
+def plot_bloch(wave_func: np.ndarray):
+    """
+    Plots trajectory of single qubit state on the Bloch sphere.
+    Colour-coded from blue to red (inital to final state)
+
+    Raises:
+        ValueError: If the input states are not single-qubit states (i.e.,
+            the second dimension of the array is not size 2)
+
+    Args:
+        wave_func (np.ndarray): A NumPy array representing the time-dependent
+            wave function. Expected shape is (N, 2), where N is the number of
+            time steps and the second dimension contains the complex amplitudes
+            of the qubit state.
+    """
+    states = []
+    for i in range(len(wave_func)):
+        states.append(Qobj(wave_func[i,:]))
+
+    sx, sy, sz = sigmax(), sigmay(), sigmaz()
+
+    x = [expect(sx, state) for state in states]
+    y = [expect(sy, state) for state in states]
+    z = [expect(sz, state) for state in states]
+
+
+    steps = len(states)
+    r = np.linspace(0, 1, steps)
+    g = np.zeros(steps)
+    b = np.linspace(1, 0, steps)
+    colours = np.column_stack((r, g, b))
+
+    b = Bloch()
+    b.add_points([x, y, z], meth='m', colors=colours) 
+
+    b.add_states(state=states[0], colors=['b'])
+    b.add_states(state=states[-1], colors=['r'])
+
+    b.show()
