@@ -402,3 +402,27 @@ def gen_offresonant_pm_seq_fast(no_pulses: int, rabi_freq: float, n_steps: int, 
     pulse_seq = gen_offresonant_pm_seq(no_pulses=no_pulses, rabi_freq=rabi_freq, n_steps=n_steps, p_start=p_start, dir=dir)
     pulse_seq_fast = gen_offresonant_pm_seq(no_pulses=no_pulses, rabi_freq=rabi_freq, n_steps=1, p_start=p_start, dir=dir)
     return pulse_seq, pulse_seq_fast
+
+def gen_MDFE_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: float = dR):
+    """
+    Generates a Momentum-Dependent Free Evolution (MDFE) pulse sequence of rectangular pulses.
+
+    Args:
+        free_time (float): Total duration of the free evolution.
+        rabi_freq (float): The Rabi frequency in 2*pi Hz.
+        time_steps (int): Number of discrete time steps per pulse or freevolution.
+        detuning (float): Laser detuning of up and down pulses. Defaults to global `dR`.
+
+    Returns:
+        PulseSequence: PulseSequence object containing the MDFE sequence.
+    """
+    mom_dependent_free_evolution = PulseSequence()
+
+    rabi_time = 2*pi/rabi_freq
+
+    up_pulse = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
+    down_pulse = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
+    freevolve = FreeEvolution(laser_det=np.full(time_steps, dR), duration=free_time/4)
+
+    mom_dependent_free_evolution.add_pulses([freevolve, up_pulse, freevolve, up_pulse, freevolve, down_pulse, freevolve, down_pulse])
+    return mom_dependent_free_evolution
