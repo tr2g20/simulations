@@ -87,9 +87,9 @@ def gen_ham_free(basis, delta_L, delta_D, delta_R):
     for i in range(n_tot):
         n = basis[i]
         if n % 2 == 0:
-            H0[i,i] = n*(delta_D + n*delta_R)
+            H0[i,i] = -n*(delta_D + n*delta_R)
         else:
-            H0[i,i] = n*(delta_D + n*delta_R) - delta_L
+            H0[i,i] = -n*(delta_D + n*delta_R) + delta_L
     return H0
 
 def gen_ham_plus(basis, phi_L, omega_R_plus):

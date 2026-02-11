@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.animation import FuncAnimation
 from qutip import Bloch, Qobj, sigmax, sigmay, sigmaz, expect
+from tabulate import tabulate
 
 
 def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarray, basis: np.ndarray, title: str = 'State trajectories', contains_title: bool = True):
@@ -114,3 +115,31 @@ def plot_bloch(wave_func: np.ndarray):
     b.add_states(state=states[-1], colors=['r'])
 
     b.show()
+
+def display_table(basis: np.ndarray, wave_func: np.ndarray):
+    
+    indices = np.arange(0, len(basis))
+    binary = []
+    for i in range(len(basis)):
+        binary.append(f'{np.round(wave_func[i], 3)}|{basis[i] % 8:03b}>')
+
+    data = list(zip(indices, basis, binary, np.round(np.square(np.abs(wave_func)), 3)))
+
+    titles = ['Index', 'Momentum (hbar*k)', 'Psi', '|Psi|^2']
+
+    print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
+
+def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state: np.ndarray):
+
+    indices = np.arange(0, len(basis))
+    binary_init = []
+    binary_fin = []
+    for i in range(len(basis)):
+        binary_init.append(f'{np.round(init_state[i], 3)}|{basis[i] % 8:03b}>')
+        binary_fin.append(f'{np.round(final_state[i], 3)}|{basis[i] % 8:03b}>')
+
+    data = list(zip(indices, basis, binary_init, binary_fin, np.round(np.square(np.abs(init_state)), 3), np.round(np.square(np.abs(final_state)), 3)))
+
+    titles = ['Index', 'Momentum (hbar*k)', 'Initial Psi', 'Final Psi', 'Initial |Psi|^2', 'Final |Psi|^2']
+
+    print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
