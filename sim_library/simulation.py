@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.constants import hbar
 from sim_library.constants import k_eff, kb, m, dR
-from sim_library.sequences import PulseSequence
+from sim_library.sequences import PulseSequence, RR3_gate
 from sim_library.hams import gen_ham_free, gen_ham_plus, gen_ham_minus, time_evolve
+from sim_library.data_io import save_p_dists
 
 def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int, basis: np.ndarray, initial_state: np.ndarray):
     """
@@ -252,3 +253,45 @@ def simulate_optical_pumping(basis: np.ndarray, init_mom_dist_grid: np.ndarray, 
             new_mom_dist[i] += init_mom_dist_grid[basis_index, i] + p_shift
             
     return new_mom_dist
+
+def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, cycles: int, rabi_freq: float, save_to_file = False):
+    
+    if not np.issubdtype(initial_state.dtype, np.complexfloating):
+        raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
+    
+    rng = np.random.default_rng()
+    rng_state = dict(rng.bit_generator.state)
+    
+    sigma = np.sqrt(kb*temp/m)
+    p_dist = m*rng.normal(loc = 0, scale = sigma, size = n_atoms)
+
+    RR3 = RR3_gate(rabi_freq=rabi_freq, time_steps=time_steps)
+
+    moms_list = [p_dist]
+    fracs_list = [np.ones(len(p_dist))]
+
+    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=p_dist, basis=basis, initial_state=initial_state)
+
+    moms_list.append(moms)
+    fracs_list.append(fracs[-1])
+
+    moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:])
+
+    moms_list.append(moms)
+    fracs_list.append(np.ones(len(moms)))
+
+    for i in range(cycles-1):
+        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=moms, basis=basis, initial_state=initial_state)
+
+        moms_list.append(moms)
+        fracs_list.append(fracs[-1])
+
+        moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:])
+
+        moms_list.append(moms)
+        fracs_list.append(np.ones(len(moms)))
+    
+    if save_to_file:
+        save_p_dists() # continue from here
+
+    return moms_list, fracs_list, rng_state
