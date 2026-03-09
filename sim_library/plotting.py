@@ -143,3 +143,36 @@ def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state
     titles = ['Index', 'Momentum (hbar*k)', 'Initial Psi', 'Final Psi', 'Initial |Psi|^2', 'Final |Psi|^2']
 
     print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
+
+def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, temp: float = -1, show: bool = True):
+    
+    fig, axes = plt.subplots(3,2, figsize=(9, 7.5), layout= 'constrained')
+    axes = axes.flatten()
+    
+    peak_density=0
+    for i in range(0,6):
+        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True)
+        axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
+        axes[i].set_xlim(basis[0],basis[-1])
+        current = np.max(counts)
+        if current > peak_density:
+            peak_density = current
+
+    yticks = np.arange(int(peak_density*1.1*10)+1)*0.1
+
+    for i in range(0,6):
+        axes[i].set_ylim(0,peak_density*1.1)
+        axes[i].set_yticks(yticks)
+        axes[i].text((len(basis)*0.81)+basis[0],peak_density*1.1*0.9,rf'{cycles_list[i]} Cycles')
+
+    axes[4].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
+    axes[5].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
+    axes[0].set_ylabel('Probability Density')
+    axes[2].set_ylabel('Probability Density')
+    axes[4].set_ylabel('Probability Density')
+
+    if temp > -1:
+        axes[0].text((len(basis)*0.04)+basis[0],peak_density*1.1*0.9,rf'$T_{{init}}={temp*1e6:.0f}\mu K$')
+
+    if show:
+        fig.show()
