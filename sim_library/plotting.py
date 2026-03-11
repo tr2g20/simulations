@@ -4,6 +4,7 @@ from matplotlib.axes import Axes
 from matplotlib.animation import FuncAnimation
 from qutip import Bloch, Qobj, sigmax, sigmay, sigmaz, expect
 from tabulate import tabulate
+from pathlib import Path
 
 
 def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarray, basis: np.ndarray, title: str = 'State trajectories', contains_title: bool = True):
@@ -146,7 +147,7 @@ def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state
 
 def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, temp: float = -1, show: bool = True, save_dir: str = ''):
     
-    fig, axes = plt.subplots(2,1, figsize=(3, 7.5), layout= 'constrained')
+    fig, axes = plt.subplots(1,2, figsize=(9, 2.5), layout= 'constrained')
     axes = axes.flatten()
 
     peak_density=0
@@ -166,6 +167,7 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         axes[i].text((len(basis)*0.81)+basis[0],peak_density*1.1*0.9,rf'{cycles_list[i]} Cycles')
 
     axes[0].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
+    axes[0].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
     axes[0].set_ylabel('Probability Density')
     axes[1].set_ylabel('Probability Density')
 
@@ -176,11 +178,14 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         fig.show()
 
     if save_dir != '':
-        fig.savefig(fname = save_dir, dpi=300, bbox_inches='tight')
+        if not Path(save_dir).exists():
+            fig.savefig(fname = save_dir, dpi=1000, bbox_inches='tight')
+        else:
+            print(f"'{save_dir}' already exists. Save aborted.")
 
 def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, temp: float = -1, show: bool = True, save_dir: str = ''):
     
-    fig, axes = plt.subplots(2,2, figsize=(6, 7.5), layout= 'constrained')
+    fig, axes = plt.subplots(2,2, figsize=(9, 5), layout= 'constrained')
     axes = axes.flatten()
     
     peak_density=0
@@ -211,7 +216,11 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
         fig.show()
 
     if save_dir != '':
-        fig.savefig(fname = save_dir, dpi=300, bbox_inches='tight')
+        if not Path(save_dir).exists():
+            fig.savefig(fname = save_dir, dpi=1000, bbox_inches='tight')
+        else:
+            print(f"'{save_dir}' already exists. Save aborted.")
+        
 
 def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, temp: float = -1, show: bool = True, save_dir: str = ''):
     
@@ -247,4 +256,7 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
         fig.show()
 
     if save_dir != '':
-        fig.savefig(fname = save_dir, dpi=300, bbox_inches='tight')
+        if not Path(save_dir).exists():
+            fig.savefig(fname = save_dir, dpi=1000, bbox_inches='tight')
+        else:
+            print(f"'{save_dir}' already exists. Save aborted.")
