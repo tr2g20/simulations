@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.constants import hbar
-from sim_library.constants import k_eff, kb, m, dR
+from sim_library.constants import k_eff, kb, m, dR, pi
 from sim_library.sequences import PulseSequence, RR3_gate
 from sim_library.hams import time_evolve
 from sim_library.data_io import save_p_dists
@@ -299,7 +299,7 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
     
     if save_dir != '':
         date_str = date.today().isoformat()
-        file_name = f"{date_str}_algcooling_{pumping_route}_{cycles}cycles_{temp*1e6:.0f}muK_{n_atoms}atoms.h5"
+        file_name = f"{date_str}_algcooling_{pumping_route}_{cycles}cycles_{temp*1e6:.0f}muK_{n_atoms}atoms_{rabi_freq/(2*pi):.0g}Hz.h5"
         file_path = Path(save_dir) / file_name
         save_p_dists(file_path=file_path, p_list=moms_list, weights_list=fracs_list, init_temp=temp, n_atoms=n_atoms, basis=basis, init_state=initial_state, cycles=cycles, pumping_route=pumping_route, date=date_str)
 
