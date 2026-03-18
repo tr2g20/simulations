@@ -145,7 +145,7 @@ def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state
 
     print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
 
-def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(1,2, figsize=(9, 2.5), layout= 'constrained')
     axes = axes.flatten()
@@ -159,12 +159,17 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         if current > peak_density:
             peak_density = current
 
-    yticks = np.arange(int(peak_density*1.1*10)+1)*0.1
+    if ylims == 0:
+        top = peak_density*1.1
+    else:
+        top = ylims
+
+    yticks = np.arange(int(top*10)+1)*0.1
 
     for i in range(0,2):
-        axes[i].set_ylim(0,peak_density*1.1)
+        axes[i].set_ylim(0,top)
         axes[i].set_yticks(yticks)
-        axes[i].text((len(basis)*0.81)+basis[0],peak_density*1.1*0.9,rf'{cycles_list[i]} Cycles')
+        axes[i].text((len(basis)*0.81)+basis[0],top*0.9,rf'{cycles_list[i]} Cycles')
 
     axes[0].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
     axes[0].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
@@ -172,7 +177,10 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
     axes[1].set_ylabel('Probability Density')
 
     if temp > -1:
-        axes[0].text((len(basis)*0.04)+basis[0],peak_density*1.1*0.9,rf'$T_{{init}}={temp*1e6:.0f}\mu K$')
+        axes[0].text((len(basis)*0.04)+basis[0],top*0.9,rf'$T_{{init}}={temp*1e6:.0f}\mu K$')
+
+    if title != '':
+        fig.suptitle(title)
 
     if show:
         fig.show()
@@ -183,7 +191,7 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         else:
             print(f"'{save_dir}' already exists. Save aborted.")
 
-def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(2,2, figsize=(9, 5), layout= 'constrained')
     axes = axes.flatten()
@@ -197,12 +205,17 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
         if current > peak_density:
             peak_density = current
 
-    yticks = np.arange(int(peak_density*1.1*10)+1)*0.1
+    if ylims == 0:
+        top = peak_density*1.1
+    else:
+        top = ylims
+
+    yticks = np.arange(int(top*10)+1)*0.1
 
     for i in range(0,4):
-        axes[i].set_ylim(0,peak_density*1.1)
+        axes[i].set_ylim(0,top)
         axes[i].set_yticks(yticks)
-        axes[i].text((len(basis)*0.81)+basis[0],peak_density*1.1*0.9,rf'{cycles_list[i]} Cycles')
+        axes[i].text((len(basis)*0.81)+basis[0],top*0.9,rf'{cycles_list[i]} Cycles')
 
     axes[2].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
     axes[3].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
@@ -210,7 +223,10 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
     axes[2].set_ylabel('Probability Density')
 
     if temp > -1:
-        axes[0].text((len(basis)*0.04)+basis[0],peak_density*1.1*0.9,rf'$T_{{init}}={temp*1e6:.0f}\mu K$')
+        axes[0].text((len(basis)*0.04)+basis[0],top*0.9,rf'$T_{{init}}={temp*1e6:.0f}\mu K$')
+
+    if title != '':
+        fig.suptitle(title)
 
     if show:
         fig.show()
@@ -222,11 +238,11 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
             print(f"'{save_dir}' already exists. Save aborted.")
         
 
-def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(3,2, figsize=(9, 7.5), layout= 'constrained')
     axes = axes.flatten()
-    
+
     peak_density=0
     for i in range(0,6):
         counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True)
@@ -236,12 +252,17 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
         if current > peak_density:
             peak_density = current
 
-    yticks = np.arange(int(peak_density*1.1*10)+1)*0.1
+    if ylims == 0:
+        top = peak_density*1.1
+    else:
+        top = ylims
+
+    yticks = np.arange(int(top*10)+1)*0.1
 
     for i in range(0,6):
-        axes[i].set_ylim(0,peak_density*1.1)
+        axes[i].set_ylim(0,top)
         axes[i].set_yticks(yticks)
-        axes[i].text((len(basis)*0.81)+basis[0],peak_density*1.1*0.9,rf'{cycles_list[i]} Cycles')
+        axes[i].text((len(basis)*0.81)+basis[0],top*0.9,rf'{cycles_list[i]} Cycles')
 
     axes[4].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
     axes[5].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
@@ -250,7 +271,10 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
     axes[4].set_ylabel('Probability Density')
 
     if temp > -1:
-        axes[0].text((len(basis)*0.04)+basis[0],peak_density*1.1*0.9,rf'$T_{{init}}={temp*1e6:.0f}\mu K$')
+        axes[0].text((len(basis)*0.04)+basis[0],top*0.9,rf'$T_{{init}}={temp*1e6:.0f}\mu K$')
+
+    if title != '':
+        fig.suptitle(title)
 
     if show:
         fig.show()

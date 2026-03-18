@@ -304,3 +304,50 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
         save_p_dists(file_path=file_path, p_list=moms_list, weights_list=fracs_list, init_temp=temp, n_atoms=n_atoms, basis=basis, init_state=initial_state, cycles=cycles, pumping_route=pumping_route, date=date_str)
 
     return moms_list, fracs_list, rng_state
+
+def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, save_dir: str = ''):
+    
+    if not np.issubdtype(initial_state.dtype, np.complexfloating):
+        raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
+    
+    rng = np.random.default_rng()
+    rng_state = dict(rng.bit_generator.state)
+    
+    sigma = np.sqrt(kb*temp/m)
+    p_dist = m*rng.normal(loc = 0, scale = sigma, size = n_atoms)
+
+    moms_list = [p_dist]
+    fracs_list = [np.ones(len(p_dist))]
+
+    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=p_dist, basis=basis, initial_state=initial_state)
+
+    moms_list.append(moms)
+    fracs_list.append(fracs[-1])
+
+    moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
+
+    moms_list.append(moms)
+    fracs_list.append(np.ones(len(moms)))
+
+    zero_index = np.argmax(basis == 0) # returns index of 0
+    reset_state = np.zeros(shape=len(basis), dtype=np.complex128) # we reset the atoms all into the ground state (p=0) and their momentum state info
+    reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
+
+    for i in range(cycles-1):
+        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state)
+
+        moms_list.append(moms)
+        fracs_list.append(fracs[-1])
+
+        moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
+
+        moms_list.append(moms)
+        fracs_list.append(np.ones(len(moms)))
+    
+    if save_dir != '':
+        date_str = date.today().isoformat()
+        file_name = f"{date_str}_algcooling_{pumping_route}_{cycles}cycles_{temp*1e6:.0f}muK_{n_atoms}atoms_{rabi_freq/(2*pi):.0g}Hz.h5"
+        file_path = Path(save_dir) / file_name
+        save_p_dists(file_path=file_path, p_list=moms_list, weights_list=fracs_list, init_temp=temp, n_atoms=n_atoms, basis=basis, init_state=initial_state, cycles=cycles, pumping_route=pumping_route, date=date_str)
+
+    return moms_list, fracs_list, rng_state
