@@ -269,8 +269,21 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
 
     RR3 = RR3_gate(rabi_freq=rabi_freq, time_steps=time_steps)
 
-    moms_list = [p_dist]
-    fracs_list = [np.ones(len(p_dist))]
+    ### convert initial p dist + initial state into a momentum distribution and weights array
+    init_mom_dist_tiled = np.tile(p_dist, (len(basis),1))
+
+    basis_tiled = np.transpose(np.tile(basis, (n_atoms,1)))
+
+    mom_dist_grid = init_mom_dist_tiled + (hbar*k_eff*basis_tiled)
+    p_dist_absolute = np.ravel(mom_dist_grid) 
+
+    square = np.abs(initial_state)**2
+    state_fractions = np.tile(square[:, np.newaxis], (1, n_atoms))
+    state_fractions = state_fractions.ravel()
+    ###
+
+    moms_list = [p_dist_absolute]
+    fracs_list = [state_fractions]
 
     moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=p_dist, basis=basis, initial_state=initial_state)
 
@@ -316,8 +329,21 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
     sigma = np.sqrt(kb*temp/m)
     p_dist = m*rng.normal(loc = 0, scale = sigma, size = n_atoms)
 
-    moms_list = [p_dist]
-    fracs_list = [np.ones(len(p_dist))]
+    ### convert initial p dist + initial state into a momentum distribution and weights array
+    init_mom_dist_tiled = np.tile(p_dist, (len(basis),1))
+
+    basis_tiled = np.transpose(np.tile(basis, (n_atoms,1)))
+
+    mom_dist_grid = init_mom_dist_tiled + (hbar*k_eff*basis_tiled)
+    p_dist_absolute = np.ravel(mom_dist_grid) 
+
+    square = np.abs(initial_state)**2
+    state_fractions = np.tile(square[:, np.newaxis], (1, n_atoms))
+    state_fractions = state_fractions.ravel()
+    ###
+
+    moms_list = [p_dist_absolute]
+    fracs_list = [state_fractions]
 
     moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=p_dist, basis=basis, initial_state=initial_state)
 
