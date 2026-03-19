@@ -228,13 +228,19 @@ class PulseSequence:
 
     pulses: list
     times: np.ndarray
-    # rabis: np.ndarray
-    # detunings: np.ndarray
-    # phases: np.ndarray
+    rabis: np.ndarray
+    detunings: np.ndarray
+    phases: np.ndarray
     hams: np.ndarray
+    pulse_types: np.ndarray
 
     def __init__(self):
         self.pulses = []
+        self.rabis = np.array([])
+        self.detunings = np.array([])
+        self.phases = np.array([])
+        self.hams = np.array([])
+        self.pulse_types = np.array([])
 
     def add_pulses(self, pulse_object):
         """
@@ -288,9 +294,7 @@ class PulseSequence:
         Returns:
             None: Updates times and hams attributes (I may get rid of these variables and change it to just return them).
         """
-        # rabis = np.concatenate([[0], pulse.rabi_freq[1:] for pulse in self.pulses])
-        # detunings = np.concatenate([[0], pulse.laser_det[1:] for pulse in self.pulses])
-        # phases = np.concatenate([[0], pulse.phase[1:] for pulse in self.pulses])
+
         times_list = [np.array([0])]
         hams_list = []
         for pulse in self.pulses:
@@ -298,7 +302,34 @@ class PulseSequence:
             times_list.append(np.linspace(times_list[-1][-1], times_list[-1][-1] + pulse.duration, pulse_n_steps + 1)[1:])
             hams_list += pulse.gen_ham_list(basis=basis, doppler_shift=doppler_shift)
         self.times = np.concatenate(times_list)
-        self.hams = np.array(hams_list)           
+        self.hams = np.array(hams_list)    
+
+    def gen_arrs(self):
+        detunings_list, phases_list, rabis_list, types_list = [], [], [], []
+        
+        for pulse in self.pulses:
+            n_steps = len(pulse.laser_det)
+            
+            detunings_list.append(pulse.laser_det)
+            types_list.append(np.full(n_steps, pulse.type_int, dtype=np.int32))
+            
+            if pulse.type == 'free':
+                phases_list.append(np.zeros(n_steps, dtype=np.float64))
+                rabis_list.append(np.zeros(n_steps, dtype=np.float64))
+            else:
+                phases_list.append(pulse.phase)
+                rabis_list.append(pulse.rabi_freq)
+                
+        self.detunings = np.concatenate(detunings_list)
+        self.phases = np.concatenate(phases_list)
+        self.rabis = np.concatenate(rabis_list)
+        self.pulse_types = np.concatenate(types_list)
+        
+        times_list = [np.array([0])]
+        for pulse in self.pulses:
+            pulse_n_steps = len(pulse.laser_det)
+            times_list.append(np.linspace(times_list[-1][-1], times_list[-1][-1] + pulse.duration, pulse_n_steps + 1)[1:])
+        self.times = np.concatenate(times_list)
         
 def gen_resonant_pm_seq(no_pulses: int, rabi_freq: float, n_steps: int, p_start: int = 0, dir: str = 'pos'):
     """
@@ -440,8 +471,8 @@ def gen_MDFEup_seq(free_time: float, rabi_freq: float, time_steps: int, detuning
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    # free_time -= ((1-0.7568568568568569)*(pi/(4*dR)))
-    free_time -= ((1-0.5151484818151485)*(pi/(4*dR)))
+    free_time -= ((1-0.7568568568568569)*(pi/(4*dR)))
+    # free_time -= ((1-0.5151484818151485)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 
@@ -467,8 +498,8 @@ def gen_MDFEdown_seq(free_time: float, rabi_freq: float, time_steps: int, detuni
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    # free_time -= ((1-0.7585585585585585)*(pi/(4*dR)))
-    free_time -= ((1-0.5219219219219219)*(pi/(4*dR)))
+    free_time -= ((1-0.7585585585585585)*(pi/(4*dR)))
+    # free_time -= ((1-0.5219219219219219)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 
@@ -494,8 +525,8 @@ def gen_MDFEup_seq2(free_time: float, rabi_freq: float, time_steps: int, detunin
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    # free_time -= ((1-0.7577577577577577)*(pi/(4*dR)))
-    free_time -= ((1-0.5226226226226226)*(pi/(4*dR)))
+    free_time -= ((1-0.7577577577577577)*(pi/(4*dR)))
+    # free_time -= ((1-0.5226226226226226)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 
@@ -521,8 +552,8 @@ def gen_MDFEdown_seq2(free_time: float, rabi_freq: float, time_steps: int, detun
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    # free_time -= ((1-0.7595345345345345)*(pi/(4*dR)))
-    free_time -= ((1-0.532032032032032)*(pi/(4*dR)))
+    free_time -= ((1-0.7595345345345345)*(pi/(4*dR)))
+    # free_time -= ((1-0.532032032032032)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 
@@ -570,7 +601,7 @@ def exchange10_gate(rabi_freq: float, time_steps: int, detuning: float = omega_e
 
     pulse_1 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #down pi/2 pulse, phase = pi/2
 
-    MDFE_1 = gen_MDFEup_seq2(free_time=pi/(4*dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/4
+    MDFE_1 = gen_MDFEup_seq(free_time=pi/(4*dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/4
     freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=5*free_time/8) #5pi/4 
     freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=free_time/2) #pi
 

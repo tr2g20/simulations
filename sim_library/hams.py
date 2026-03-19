@@ -2,6 +2,7 @@ import numpy as np
 from scipy.sparse.linalg import expm
 from scipy.constants import hbar, pi
 import matplotlib.pyplot as plt
+from numba import njit
 
 def generate_hams(n_min, n_max, phi_L, omega_R_plus, omega_R_minus, delta_L, delta_D, delta_R):
     """Generates Hamiltonians necessary for simulating alternating pulse sequences.
@@ -65,7 +66,8 @@ def generate_hams(n_min, n_max, phi_L, omega_R_plus, omega_R_minus, delta_L, del
             
     return H0, Hplus, Hminus, basis
 
-def gen_ham_free(basis, delta_L, delta_D, delta_R):
+@njit
+def gen_ham_free(basis: np.ndarray, delta_L: float, delta_D: float, delta_R: float):
     """Generates Hamiltonian for free evolution.
     NOTE: Hamiltonians exclude factor of hbar since it is divided away when calculating time evolution.
 
@@ -78,7 +80,7 @@ def gen_ham_free(basis, delta_L, delta_D, delta_R):
     Returns:
         H0 (np.ndarray): A 2D array of shape (n_tot, n_tot) representing the drift Hamiltonian.
     """
-    n_tot = np.size(basis)
+    n_tot = len(basis)
 
     ### Generate H0 ###
     # Diagonal matrix
@@ -92,7 +94,8 @@ def gen_ham_free(basis, delta_L, delta_D, delta_R):
             H0[i,i] = -n*(delta_D + n*delta_R) + delta_L
     return H0
 
-def gen_ham_plus(basis, phi_L, omega_R_plus):
+@njit
+def gen_ham_plus(basis: np.ndarray, phi_L: float, omega_R_plus: float):
     """Generates Hamiltonian for a Raman pulse in the positive direction.
     NOTE: Hamiltonians exclude factor of hbar since it is divided away when calculating time evolution.
 
@@ -104,7 +107,7 @@ def gen_ham_plus(basis, phi_L, omega_R_plus):
     Returns:
         H0 (np.ndarray): A 2D array of shape (n_tot, n_tot) representing the drift Hamiltonian.
     """
-    n_tot = np.size(basis)
+    n_tot = len(basis)
 
     ### Generate H+ ###
     # Care is taken to not go out of range of array, 
@@ -119,7 +122,8 @@ def gen_ham_plus(basis, phi_L, omega_R_plus):
             Hplus[row, row - 1] = (omega_R_plus/2)*np.exp(1j*phi_L)
     return Hplus
 
-def gen_ham_minus(basis, phi_L, omega_R_minus):
+@njit
+def gen_ham_minus(basis: np.ndarray, phi_L: float, omega_R_minus: float):
     """Generates Hamiltonian for a Raman pulse in the negative direction.
     NOTE: Hamiltonians exclude factor of hbar since it is divided away when calculating time evolution.
 
@@ -131,7 +135,7 @@ def gen_ham_minus(basis, phi_L, omega_R_minus):
     Returns:
         H0 (np.ndarray): A 2D array of shape (n_tot, n_tot) representing the drift Hamiltonian.
     """
-    n_tot = np.size(basis)
+    n_tot = len(basis)
 
     ### Generate H- ###
     # Care is taken to not go out of range of array, 
@@ -146,7 +150,26 @@ def gen_ham_minus(basis, phi_L, omega_R_minus):
             Hminus[row, row + 1] = (omega_R_minus/2)*np.exp(1j*phi_L)
     return Hminus
 
-def time_evolve(dt, H):
+@njit
+def time_evolve(state_vec: np.ndarray, dt: float, H: np.ndarray):
+    """
+    Generates time evolution matrix from Hamiltonian
+
+    Args:
+        dt (float): Length of pulse/free evolution.
+        Hplus (np.ndarray): A 2D array representing the Hamiltonian (divided by hbar).
+
+    Returns:
+        time_evol_mat (np.ndarray): A 2D array representing the time evolution operator for the input Hamiltonian.
+    """
+    eig_vals, eig_vecs = np.linalg.eigh(H)
+    
+    # Brackets to ensure correct multiplication order such that each step is matrix x vector or vector x vector
+    new_state_vec = eig_vecs @ (np.exp(-1j * dt * eig_vals) * (eig_vecs.conj().T @ state_vec))
+ 
+    return new_state_vec    
+
+def time_evolve_old(dt, H):
     """
     Generates time evolution matrix from Hamiltonian
 

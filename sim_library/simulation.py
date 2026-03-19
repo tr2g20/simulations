@@ -2,12 +2,42 @@ import numpy as np
 from scipy.constants import hbar
 from sim_library.constants import k_eff, kb, m, dR, pi
 from sim_library.sequences import PulseSequence, RR3_gate
-from sim_library.hams import time_evolve
+from sim_library.hams import time_evolve, gen_ham_free, gen_ham_minus, gen_ham_plus
 from sim_library.data_io import save_p_dists
 from datetime import date
 from pathlib import Path
+from numba import njit
 
-def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int, basis: np.ndarray, initial_state: np.ndarray):
+@njit
+def gen_state_fractions(basis: np.ndarray, initial_state: np.ndarray, atom_veloc: np.ndarray, beam_profile: np.ndarray, rabis: np.ndarray, detunings: np.ndarray, phases: np.ndarray, times: np.ndarray, pulse_types: np.ndarray):
+    n_steps = len(phases) + 1
+    
+    state_fractions_grid = np.zeros((n_steps, len(basis), len(atom_veloc)))
+
+    state_vec = initial_state
+    square = np.abs(state_vec)**2
+    state_fractions_grid[0,:,:] = square[:, np.newaxis] # populate first time step with initial state for every atom
+
+    for v in range(len(atom_veloc)):
+        state_vec = initial_state.copy() # reset back to initial state for each atom
+
+        adjusted_rabis = beam_profile[v]*rabis # increases or decreases the preset rabi frequency to simulate intensity noise
+
+        for t in range(1, n_steps):
+            ham = gen_ham_free(basis, detunings[t-1], k_eff*atom_veloc[v], dR)
+            
+            if pulse_types[t-1] == 0:    # UpPulse
+                ham += gen_ham_plus(basis, phases[t-1], adjusted_rabis[t-1])
+            elif pulse_types[t-1] == 1:  # DownPulse
+                ham += gen_ham_minus(basis, phases[t-1], adjusted_rabis[t-1])
+
+            state_vec = time_evolve(state_vec, times[t]-times[t-1], ham) # times is one longer than other arrays
+            square = np.abs(state_vec)**2
+            state_fractions_grid[t,:,v] = square
+    
+    return state_fractions_grid
+
+def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int, basis: np.ndarray, initial_state: np.ndarray, beam_profile: np.ndarray):
     """
     Simulates a sequence of pulses on an initial state for an ensemble of atoms defined by the given temperature.
     This functions returns the momentum distribution along with the weights (probabilities) corresponding to each momentum state.
@@ -47,26 +77,9 @@ def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int,
     sigma = np.sqrt(kb*Temp/m)
     atom_veloc = rng.normal(loc = 0, scale = sigma, size = no_atoms)
 
-    n_steps = pulse_seq.get_n_steps()
+    pulse_seq.gen_arrs() # populates pulse_seq attributes necessary for gen_state_fractions
 
-    state_fractions_grid = np.zeros((n_steps, len(basis), len(atom_veloc)))
-
-    state_vec = initial_state
-    square = np.abs(state_vec)**2
-    state_fractions_grid[0,:,:] = square[:, np.newaxis] # populate first time step with initial state for every atom
-
-    for v in range(len(atom_veloc)):
-        state_vec = initial_state # reset back to initial state for each atom
-
-        pulse_seq.gen_hams(basis= basis, doppler_shift= k_eff*atom_veloc[v])
-        hams = pulse_seq.hams
-        times = pulse_seq.times
-        
-        for t in range(1, n_steps):
-            state_vec = time_evolve(times[t]-times[t-1], hams[t-1]) @ state_vec # hams is one shorter than times
-            square = np.abs(state_vec)**2
-            state_fractions_grid[t,:,v] = square
-        
+    state_fractions_grid = gen_state_fractions(basis=basis, initial_state=initial_state, atom_veloc=atom_veloc, beam_profile=beam_profile, rabis=pulse_seq.rabis, detunings=pulse_seq.detunings, phases=pulse_seq.phases, times=pulse_seq.times, pulse_types=pulse_seq.pulse_types)
         
     # remember this is still relative to the initial state    
     init_mom_dist = atom_veloc*m 
@@ -85,7 +98,7 @@ def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int,
     
     return mom_dist, state_fractions, mom_dist_grid, state_fractions_grid, rng_state
 
-def simulate_pulses_p_dist_custom(pulse_seq: PulseSequence, init_mom_dist: np.ndarray, basis: np.ndarray, initial_state: np.ndarray):
+def simulate_pulses_p_dist_custom(pulse_seq: PulseSequence, init_mom_dist: np.ndarray, basis: np.ndarray, initial_state: np.ndarray, beam_profile: np.ndarray):
     """
     Simulates a sequence of pulses on an initial state for an ensemble of atoms with a given momentum distribution.
     This functions returns the momentum distribution along with the weights (probabilities) corresponding to each momentum state.
@@ -117,26 +130,9 @@ def simulate_pulses_p_dist_custom(pulse_seq: PulseSequence, init_mom_dist: np.nd
 
     atom_veloc = init_mom_dist/m
 
-    n_steps = pulse_seq.get_n_steps()
+    pulse_seq.gen_arrs() # populates pulse_seq attributes necessary for gen_state_fractions
 
-    state_fractions_grid = np.zeros((n_steps, len(basis), len(atom_veloc)))
-
-    state_vec = initial_state
-    square = np.abs(state_vec)**2
-    state_fractions_grid[0,:,:] = square[:, np.newaxis] # populate first time step with initial state for every atom
-
-    for v in range(len(atom_veloc)):
-        state_vec = initial_state # reset back to initial state for each atom
-
-        pulse_seq.gen_hams(basis= basis, doppler_shift= k_eff*atom_veloc[v])
-        hams = pulse_seq.hams
-        times = pulse_seq.times
-        
-        for t in range(1, n_steps):
-            state_vec = time_evolve(times[t]-times[t-1], hams[t-1]) @ state_vec # hams is one shorter than times
-            square = np.abs(state_vec)**2
-            state_fractions_grid[t,:,v] = square
-        
+    state_fractions_grid = gen_state_fractions(basis=basis, initial_state=initial_state, atom_veloc=atom_veloc, beam_profile=beam_profile, rabis=pulse_seq.rabis, detunings=pulse_seq.detunings, phases=pulse_seq.phases, times=pulse_seq.times, pulse_types=pulse_seq.pulse_types)   
         
     # remember this is still relative to the initial state    
     init_mom_dist_tiled = np.tile(init_mom_dist, (len(basis),1))
@@ -192,12 +188,13 @@ def simulate_pulses_single_atom(pulse_seq: PulseSequence, basis: np.ndarray, ini
 
     wave_func[:,0] = state_vec
 
-    for i in range(1,n_steps):
-        state_vec = time_evolve(times[i]-times[i-1], hams[i-1]) @ state_vec # hams is one shorter than times
-        wave_func[:,i] = state_vec
+    for t in range(1,n_steps):
+        state_vec = time_evolve(state_vec= state_vec, dt = times[t]-times[t-1], H = hams[t-1]) # hams is one shorter than times
+        wave_func[:,t] = state_vec
 
     return np.transpose(wave_func), times
 
+@njit
 def p_shift_random_walk(ground_state_ratio: float):
     """Performs a random walk to simulate how many photon absorptions and spontaneous emissions before an atom is pumped to a dark state.
 
@@ -209,11 +206,12 @@ def p_shift_random_walk(ground_state_ratio: float):
             - p (float): The total accumulated momentum shift.
             - n (int): The total number of photon scatters that occur.
     """
-    p=0
+    p=0.0
     n=0
     walking = True
+
     while walking:
-        p += np.random.choice([-1,1])
+        p += 1.0 if np.random.random() > 0.5 else -1.0
         p += np.random.uniform(-1,1)
         n += 1
         a = np.random.random()
@@ -221,7 +219,6 @@ def p_shift_random_walk(ground_state_ratio: float):
             walking = False
     return p, n
  
-    
 def simulate_optical_pumping(basis: np.ndarray, init_mom_dist_grid: np.ndarray, state_fracs_grid: np.ndarray, pumping_route: str = 'f3'):
     """Simulates the effect of optical pumping on the momentum distribution of an atomic ensemble.
 
@@ -256,7 +253,7 @@ def simulate_optical_pumping(basis: np.ndarray, init_mom_dist_grid: np.ndarray, 
             
     return new_mom_dist
 
-def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, save_dir: str = ''):
+def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, save_dir: str = ''):
     
     if not np.issubdtype(initial_state.dtype, np.complexfloating):
         raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
@@ -285,7 +282,7 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
     moms_list = [p_dist_absolute]
     fracs_list = [state_fractions]
 
-    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=p_dist, basis=basis, initial_state=initial_state)
+    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=p_dist, basis=basis, initial_state=initial_state, beam_profile=beam_profile)
 
     moms_list.append(moms)
     fracs_list.append(fracs[-1])
@@ -300,7 +297,7 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
 
     for i in range(cycles-1):
-        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=moms, basis=basis, initial_state=reset_state)
+        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
         moms_list.append(moms)
         fracs_list.append(fracs[-1])
@@ -318,7 +315,7 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
 
     return moms_list, fracs_list, rng_state
 
-def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, save_dir: str = ''):
+def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, save_dir: str = ''):
     
     if not np.issubdtype(initial_state.dtype, np.complexfloating):
         raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
@@ -345,7 +342,7 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
     moms_list = [p_dist_absolute]
     fracs_list = [state_fractions]
 
-    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=p_dist, basis=basis, initial_state=initial_state)
+    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=p_dist, basis=basis, initial_state=initial_state, beam_profile=beam_profile)
 
     moms_list.append(moms)
     fracs_list.append(fracs[-1])
@@ -360,7 +357,7 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
 
     for i in range(cycles-1):
-        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state)
+        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
         moms_list.append(moms)
         fracs_list.append(fracs[-1])
