@@ -152,7 +152,7 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
 
     peak_density=0
     for i in range(0,2):
-        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True)
+        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True, range=(basis[0], basis[-1]))
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
         current = np.max(counts)
@@ -198,7 +198,7 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
     
     peak_density=0
     for i in range(0,4):
-        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True)
+        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True, range=(basis[0], basis[-1]))
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
         current = np.max(counts)
@@ -245,7 +245,7 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
 
     peak_density=0
     for i in range(0,6):
-        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True)
+        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True, range=(basis[0], basis[-1]))
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
         current = np.max(counts)
