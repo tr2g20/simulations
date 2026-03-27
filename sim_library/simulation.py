@@ -253,7 +253,7 @@ def simulate_optical_pumping(basis: np.ndarray, init_mom_dist_grid: np.ndarray, 
             
     return new_mom_dist
 
-def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, save_dir: str = ''):
+def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, alternating: bool = False, save_dir: str = ''):
     
     if not np.issubdtype(initial_state.dtype, np.complexfloating):
         raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
@@ -297,6 +297,10 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
 
     for i in range(cycles-1):
+
+        if alternating:
+            moms = moms*-1
+
         moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
         moms_list.append(moms)
@@ -315,7 +319,7 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
 
     return moms_list, fracs_list, rng_state
 
-def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, save_dir: str = ''):
+def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, alternating: bool = False, save_dir: str = ''):
     
     if not np.issubdtype(initial_state.dtype, np.complexfloating):
         raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
@@ -357,6 +361,10 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
 
     for i in range(cycles-1):
+
+        if alternating:
+            moms = moms*-1
+            
         moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
         moms_list.append(moms)
