@@ -5,11 +5,13 @@ from matplotlib.animation import FuncAnimation
 from qutip import Bloch, Qobj, sigmax, sigmay, sigmaz, expect
 from tabulate import tabulate
 from pathlib import Path
+from scipy.optimize import curve_fit
+from sim_library.constants import kb, m, pi, hbar, k_eff
 
 
 def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarray, basis: np.ndarray, title: str = 'State trajectories', contains_title: bool = True):
     """
-    Plots the state trajectories against times against time for a pulse sequence.
+    Plots the state trajectories against time for a pulse sequence.
 
     Args:
         ax: The Axes object to draw the histograms onto.
@@ -284,3 +286,42 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
             fig.savefig(fname = save_dir, dpi=1000, bbox_inches='tight')
         else:
             print(f"'{save_dir}' already exists. Save aborted.")
+
+def gaussian(p, amp, T, mu):
+    '''
+    Gaussian that represents a momentum distribution of temperature T.
+    p is in units of hbar*k.
+    '''
+    return (amp*hbar*k_eff/(np.sqrt(2*pi*m*kb*T)))*np.exp(-((hbar*k_eff)*(p-mu))**2/(2*kb*T*m))
+
+def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, lowlim: float, highlim: float, nbins: int, plot: bool = False, fit_npoints: int = 1000):
+
+    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, density=True)
+    bindiff = bin_edges[1]-bin_edges[0]
+
+    binmids = bin_edges[:-1] + (bindiff/2)
+
+
+    binmids_trunc = binmids[(binmids >= lowlim) & (binmids <= highlim)]
+    counts_trunc = counts[(binmids >= lowlim) & (binmids <= highlim)]
+
+    fitted_vals, cov = curve_fit(gaussian, binmids_trunc, counts_trunc)
+
+    amp = fitted_vals[0]
+    T = fitted_vals[1]
+    shift = fitted_vals[2]
+
+
+    if plot:
+        fit_x = np.linspace(-15, 15, fit_npoints)
+        fit_y = gaussian(fit_x, amp, T, shift)
+
+        plt.plot(binmids_trunc, counts_trunc)
+        plt.plot(fit_x, fit_y)
+        plt.grid()
+        plt.xlim(lowlim,highlim)
+        plt.xlabel(r'$p$ $(\hbar k_{eff})$')
+        plt.ylabel(r'Probability density')
+        plt.show()
+
+    return amp, T, shift, cov

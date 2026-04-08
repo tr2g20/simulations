@@ -471,8 +471,8 @@ def gen_MDFEup_seq(free_time: float, rabi_freq: float, time_steps: int, detuning
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    free_time -= ((1-0.7568568568568569)*(pi/(4*dR)))
-    # free_time -= ((1-0.5151484818151485)*(pi/(4*dR)))
+    # free_time -= ((1-0.7568568568568569)*(pi/(4*dR)))
+    free_time -= ((1-0.5151484818151485)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 
@@ -498,8 +498,8 @@ def gen_MDFEdown_seq(free_time: float, rabi_freq: float, time_steps: int, detuni
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    free_time -= ((1-0.7585585585585585)*(pi/(4*dR)))
-    # free_time -= ((1-0.5219219219219219)*(pi/(4*dR)))
+    # free_time -= ((1-0.7585585585585585)*(pi/(4*dR)))
+    free_time -= ((1-0.5219219219219219)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 
@@ -525,8 +525,8 @@ def gen_MDFEup_seq2(free_time: float, rabi_freq: float, time_steps: int, detunin
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    free_time -= ((1-0.7577577577577577)*(pi/(4*dR)))
-    # free_time -= ((1-0.5226226226226226)*(pi/(4*dR)))
+    # free_time -= ((1-0.7577577577577577)*(pi/(4*dR)))
+    free_time -= ((1-0.5226226226226226)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 
@@ -552,8 +552,8 @@ def gen_MDFEdown_seq2(free_time: float, rabi_freq: float, time_steps: int, detun
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
     """
-    free_time -= ((1-0.7595345345345345)*(pi/(4*dR)))
-    # free_time -= ((1-0.532032032032032)*(pi/(4*dR)))
+    # free_time -= ((1-0.7595345345345345)*(pi/(4*dR)))
+    free_time -= ((1-0.532032032032032)*(pi/(4*dR)))
 
     mom_dependent_free_evolution = PulseSequence()
 

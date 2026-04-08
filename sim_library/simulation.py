@@ -302,7 +302,7 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
 
         if alternating: # if alternating flip the mom dist around p=0 every other cycle
             moms = moms*-1
-            multiplier = -1**(i+1) # corrects the flip in the moms_list
+            multiplier = (-1)**(i+1) # corrects the flip in the moms_list
 
         moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
@@ -334,9 +334,9 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
     p_dist = m*rng.normal(loc = 0, scale = sigma, size = n_atoms)
 
     ### convert initial p dist + initial state into a momentum distribution and weights array
-    init_mom_dist_tiled = np.tile(p_dist, (len(basis),1))
+    init_mom_dist_tiled = np.broadcast_to(p_dist, (len(basis), p_dist.shape[0]))
 
-    basis_tiled = np.transpose(np.tile(basis, (n_atoms,1)))
+    basis_tiled = np.broadcast_to(basis[:, None], (len(basis), n_atoms))
 
     mom_dist_grid = init_mom_dist_tiled + (hbar*k_eff*basis_tiled)
     p_dist_absolute = np.ravel(mom_dist_grid) 
@@ -369,10 +369,7 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
 
         if alternating: # if alternating flip the mom dist around p=0 every other cycle
             moms = moms*-1
-            multiplier = -1**(i+1) # corrects the flip in the moms_list
-        
-        print(len(moms_list))
-        print(multiplier)
+            multiplier = (-1)**(i+1) # corrects the flip in the moms_list
 
         moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
@@ -391,3 +388,66 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
         save_p_dists(file_path=file_path, p_list=moms_list, weights_list=fracs_list, init_temp=temp, n_atoms=n_atoms, basis=basis, init_state=initial_state, cycles=cycles, pumping_route=pumping_route, date=date_str)
 
     return moms_list, fracs_list, rng_state
+
+def simulate_alg_cooling_custom2(basis: np.ndarray, sequence: PulseSequence, time_steps: int, p_dist: np.ndarray, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, alternating: bool = False, save_dir: str = ''):
+    
+    if not np.issubdtype(initial_state.dtype, np.complexfloating):
+        raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
+    
+    n_atoms = len(p_dist)
+
+    ### convert initial p dist + initial state into a momentum distribution and weights array
+    init_mom_dist_tiled = np.broadcast_to(p_dist, (len(basis), p_dist.shape[0]))
+
+    basis_tiled = np.broadcast_to(basis[:, None], (len(basis), n_atoms))
+
+    mom_dist_grid = init_mom_dist_tiled + (hbar*k_eff*basis_tiled)
+    p_dist_absolute = np.ravel(mom_dist_grid) 
+
+    square = np.abs(initial_state)**2
+    state_fractions = np.tile(square[:, np.newaxis], (1, n_atoms))
+    state_fractions = state_fractions.ravel()
+    ###
+
+    moms_list = [p_dist_absolute]
+    fracs_list = [state_fractions]
+
+    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=p_dist, basis=basis, initial_state=initial_state, beam_profile=beam_profile)
+
+    moms_list.append(moms)
+    fracs_list.append(fracs[-1])
+
+    moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
+
+    moms_list.append(moms)
+    fracs_list.append(np.ones(len(moms)))
+
+    zero_index = np.argmax(basis == 0) # returns index of 0
+    reset_state = np.zeros(shape=len(basis), dtype=np.complex128) # we reset the atoms all into the ground state (p=0) and their momentum state info
+    reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
+
+    multiplier = 1
+
+    for i in range(cycles-1):
+
+        if alternating: # if alternating flip the mom dist around p=0 every other cycle
+            moms = moms*-1
+            multiplier = (-1)**(i+1) # corrects the flip in the moms_list
+
+        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
+
+        moms_list.append(moms*multiplier)
+        fracs_list.append(fracs[-1])
+
+        moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
+
+        moms_list.append(moms*multiplier)
+        fracs_list.append(np.ones(len(moms)))
+    
+    if save_dir != '':
+        date_str = date.today().isoformat()
+        file_name = f"{date_str}_algcooling_{pumping_route}_{cycles}cycles_{temp*1e6:.0f}muK_{n_atoms}atoms_{rabi_freq/(2*pi):.0g}Hz.h5"
+        file_path = Path(save_dir) / file_name
+        save_p_dists(file_path=file_path, p_list=moms_list, weights_list=fracs_list, init_temp=temp, n_atoms=n_atoms, basis=basis, init_state=initial_state, cycles=cycles, pumping_route=pumping_route, date=date_str)
+
+    return moms_list, fracs_list
