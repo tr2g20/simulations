@@ -296,22 +296,20 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
     reset_state = np.zeros(shape=len(basis), dtype=np.complex128) # we reset the atoms all into the ground state (p=0) and their momentum state info
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
 
-    multiplier = 1
-
     for i in range(cycles-1):
 
-        if alternating: # if alternating flip the mom dist around p=0 every other cycle
+        if alternating:
             moms = moms*-1
             multiplier = (-1)**(i+1) # corrects the flip in the moms_list
 
         moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
-        moms_list.append(moms*multiplier)
+        moms_list.append(moms)
         fracs_list.append(fracs[-1])
 
         moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
 
-        moms_list.append(moms*multiplier)
+        moms_list.append(moms)
         fracs_list.append(np.ones(len(moms)))
     
     if save_dir != '':
@@ -363,22 +361,20 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
     reset_state = np.zeros(shape=len(basis), dtype=np.complex128) # we reset the atoms all into the ground state (p=0) and their momentum state info
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
 
-    multiplier = 1
-
     for i in range(cycles-1):
 
-        if alternating: # if alternating flip the mom dist around p=0 every other cycle
+        if alternating:
             moms = moms*-1
             multiplier = (-1)**(i+1) # corrects the flip in the moms_list
 
         moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
-        moms_list.append(moms*multiplier)
+        moms_list.append(moms)
         fracs_list.append(fracs[-1])
 
         moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
 
-        moms_list.append(moms*multiplier)
+        moms_list.append(moms)
         fracs_list.append(np.ones(len(moms)))
     
     if save_dir != '':
