@@ -304,7 +304,7 @@ class PulseSequence:
         self.times = np.concatenate(times_list)
         self.hams = np.array(hams_list)    
 
-    def gen_arrs(self):
+    def build_seq(self):
         detunings_list, phases_list, rabis_list, types_list = [], [], [], []
         
         for pulse in self.pulses:

@@ -9,33 +9,29 @@ from pathlib import Path
 from numba import njit
 
 @njit
-def gen_state_fractions(basis: np.ndarray, initial_state: np.ndarray, atom_veloc: np.ndarray, beam_profile: np.ndarray, rabis: np.ndarray, detunings: np.ndarray, phases: np.ndarray, times: np.ndarray, pulse_types: np.ndarray):
+def gen_state_fractions(state_fractions_grid: np.ndarray, state_vec: np.ndarray, 
+                        basis: np.ndarray, initial_state: np.ndarray, init_mom_dist: np.ndarray, beam_profile: np.ndarray, rabis: np.ndarray, detunings: np.ndarray, phases: np.ndarray, times: np.ndarray, pulse_types: np.ndarray):
     n_steps = len(phases) + 1
+    n_atoms = len(init_mom_dist)
     
-    state_fractions_grid = np.zeros((n_steps, len(basis), len(atom_veloc)))
+    state_fractions_grid[0, :, :] = np.abs(initial_state)[:, np.newaxis]**2
 
-    state_vec = initial_state
-    square = np.abs(state_vec)**2
-    state_fractions_grid[0,:,:] = square[:, np.newaxis] # populate first time step with initial state for every atom
-
-    for v in range(len(atom_veloc)):
-        state_vec = initial_state.copy() # reset back to initial state for each atom
-
-        adjusted_rabis = beam_profile[v]*rabis # increases or decreases the preset rabi frequency to simulate intensity noise
+    for v in range(n_atoms):
+        state_vec[:] = initial_state # reset back to initial state for each atom
 
         for t in range(1, n_steps):
-            ham = gen_ham_free(basis, detunings[t-1], k_eff*atom_veloc[v], dR)
+            atom_veloc = init_mom_dist[v]/m
+            ham = gen_ham_free(basis, detunings[t-1], k_eff*atom_veloc, dR)
+
+            adjusted_rabi = beam_profile[v]*rabis[t-1] # increases or decreases the preset rabi frequency to simulate intensity noise
             
             if pulse_types[t-1] == 0:    # UpPulse
-                ham += gen_ham_plus(basis, phases[t-1], adjusted_rabis[t-1])
+                ham += gen_ham_plus(basis, phases[t-1], adjusted_rabi)
             elif pulse_types[t-1] == 1:  # DownPulse
-                ham += gen_ham_minus(basis, phases[t-1], adjusted_rabis[t-1])
+                ham += gen_ham_minus(basis, phases[t-1], adjusted_rabi)
 
             state_vec = time_evolve(state_vec, times[t]-times[t-1], ham) # times is one longer than other arrays
-            square = np.abs(state_vec)**2
-            state_fractions_grid[t,:,v] = square
-    
-    return state_fractions_grid
+            state_fractions_grid[t,:,v] = np.abs(state_vec)**2
 
 def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int, basis: np.ndarray, initial_state: np.ndarray, beam_profile: np.ndarray):
     """
@@ -98,7 +94,8 @@ def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int,
     
     return mom_dist, state_fractions, mom_dist_grid, state_fractions_grid, rng_state
 
-def simulate_pulses_p_dist_custom(pulse_seq: PulseSequence, init_mom_dist: np.ndarray, basis: np.ndarray, initial_state: np.ndarray, beam_profile: np.ndarray):
+def simulate_pulses_p_dist_custom(state_fractions_grid: np.ndarray, mom_dist_grid: np.ndarray, state_vec_buffer: np.ndarray, 
+                                  pulse_seq: PulseSequence, init_mom_dist: np.ndarray, basis: np.ndarray, initial_state: np.ndarray, beam_profile: np.ndarray):
     """
     Simulates a sequence of pulses on an initial state for an ensemble of atoms with a given momentum distribution.
     This functions returns the momentum distribution along with the weights (probabilities) corresponding to each momentum state.
@@ -127,28 +124,16 @@ def simulate_pulses_p_dist_custom(pulse_seq: PulseSequence, init_mom_dist: np.nd
 
     if len(pulse_seq.pulses) <= 0:
         raise ValueError("List of pulses is empty")
+    
+    if len(pulse_seq.phases) == 0:
+        raise RuntimeError("Pulse sequence parameters are empty. Call sequence.build_seq() to initialise arrays after adding pulses.")
 
-    atom_veloc = init_mom_dist/m
-
-    pulse_seq.gen_arrs() # populates pulse_seq attributes necessary for gen_state_fractions
-
-    state_fractions_grid = gen_state_fractions(basis=basis, initial_state=initial_state, atom_veloc=atom_veloc, beam_profile=beam_profile, rabis=pulse_seq.rabis, detunings=pulse_seq.detunings, phases=pulse_seq.phases, times=pulse_seq.times, pulse_types=pulse_seq.pulse_types)   
+    gen_state_fractions(state_fractions_grid=state_fractions_grid, state_vec=state_vec_buffer, 
+                        basis=basis, initial_state=initial_state, init_mom_dist=init_mom_dist, beam_profile=beam_profile, rabis=pulse_seq.rabis, detunings=pulse_seq.detunings, phases=pulse_seq.phases, times=pulse_seq.times, pulse_types=pulse_seq.pulse_types)   
         
-    # remember this is still relative to the initial state    
-    init_mom_dist_tiled = np.tile(init_mom_dist, (len(basis),1))
-
-    basis_tiled = np.transpose(np.tile(basis, (len(atom_veloc),1)))
-
     # this is a list of all the possible momentum states, 
     # this is fixed and just depends on the initial distribution and the basis
-    mom_dist_grid = init_mom_dist_tiled + (hbar*k_eff*basis_tiled)
-    mom_dist = np.ravel(mom_dist_grid) 
-
-    # this all of the probabilities or weights at each time step
-    # the rows line up with mom_dist, then the the column dimension is the time
-    state_fractions = state_fractions_grid.reshape(state_fractions_grid.shape[0],-1)
-    
-    return mom_dist, state_fractions, mom_dist_grid, state_fractions_grid
+    mom_dist_grid[:] = init_mom_dist[np.newaxis, :] + (hbar * k_eff * basis[:, np.newaxis])
 
 def simulate_pulses_single_atom(pulse_seq: PulseSequence, basis: np.ndarray, initial_state: np.ndarray, d_shift: float = 0) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -267,9 +252,9 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
     RR3 = RR3_gate(rabi_freq=rabi_freq, time_steps=time_steps)
 
     ### convert initial p dist + initial state into a momentum distribution and weights array
-    init_mom_dist_tiled = np.tile(p_dist, (len(basis),1))
+    init_mom_dist_tiled = np.broadcast_to(p_dist, (len(basis), p_dist.shape[0]))
 
-    basis_tiled = np.transpose(np.tile(basis, (n_atoms,1)))
+    basis_tiled = np.broadcast_to(basis[:, None], (len(basis), n_atoms))
 
     mom_dist_grid = init_mom_dist_tiled + (hbar*k_eff*basis_tiled)
     p_dist_absolute = np.ravel(mom_dist_grid) 
@@ -296,6 +281,8 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
     reset_state = np.zeros(shape=len(basis), dtype=np.complex128) # we reset the atoms all into the ground state (p=0) and their momentum state info
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
 
+    multiplier = 1
+
     for i in range(cycles-1):
 
         if alternating:
@@ -304,12 +291,12 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
 
         moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=RR3, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
-        moms_list.append(moms)
+        moms_list.append(moms*multiplier)
         fracs_list.append(fracs[-1])
 
         moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
 
-        moms_list.append(moms)
+        moms_list.append(moms*multiplier)
         fracs_list.append(np.ones(len(moms)))
     
     if save_dir != '':
@@ -320,46 +307,58 @@ def simulate_alg_cooling(basis: np.ndarray, time_steps: int, n_atoms: int, temp:
 
     return moms_list, fracs_list, rng_state
 
-def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time_steps: int, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, alternating: bool = False, save_dir: str = ''):
+def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, n_atoms: int, temp: float, initial_state: np.ndarray, beam_profile: np.ndarray, cycles: int, rabi_freq: float, pumping_route: str, alternating: bool = False, save_dir: str = ''):
     
     if not np.issubdtype(initial_state.dtype, np.complexfloating):
         raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
     
+    if len(sequence.pulses) <= 0:
+        raise ValueError("List of pulses is empty")
+    
+    if len(sequence.phases) == 0:
+        raise RuntimeError("Pulse sequence parameters are empty. Call sequence.build_seq() to initialise arrays after adding pulses.")
+
     rng = np.random.default_rng()
     rng_state = dict(rng.bit_generator.state)
     
     sigma = np.sqrt(kb*temp/m)
     p_dist = m*rng.normal(loc = 0, scale = sigma, size = n_atoms)
 
-    ### convert initial p dist + initial state into a momentum distribution and weights array
-    init_mom_dist_tiled = np.broadcast_to(p_dist, (len(basis), p_dist.shape[0]))
+    n_steps = len(sequence.phases) + 1 # number of time steps in a sequence
 
-    basis_tiled = np.broadcast_to(basis[:, None], (len(basis), n_atoms))
-
-    mom_dist_grid = init_mom_dist_tiled + (hbar*k_eff*basis_tiled)
-    p_dist_absolute = np.ravel(mom_dist_grid) 
-
-    square = np.abs(initial_state)**2
-    state_fractions = np.tile(square[:, np.newaxis], (1, n_atoms))
-    state_fractions = state_fractions.ravel()
+    ### Globally allocated arrays ###
+    # This is to optimise memory usage and stop unecessary copies of arrays being made
+    # These get passed into each simulation function, by reference so no returns are needed
+    state_fractions_grid = np.empty((n_steps, len(basis), n_atoms), dtype=np.float64)
+    mom_dist_grid = np.empty((len(basis), n_atoms), dtype=np.float64)
+    state_vec_buffer = np.empty(len(basis), dtype=np.complex128)
     ###
 
-    moms_list = [p_dist_absolute]
-    fracs_list = [state_fractions]
+    ### convert initial p dist + initial state into a momentum distribution and weights array
+    mom_dist_grid[:] = p_dist[np.newaxis, :] + (hbar * k_eff * basis[:, np.newaxis])
+    square = np.abs(initial_state)**2
+    init_state_fractions = (square[:, np.newaxis] * np.ones((1, n_atoms))).ravel()
+    ###
 
-    moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=p_dist, basis=basis, initial_state=initial_state, beam_profile=beam_profile)
+    moms_list = [mom_dist_grid.ravel().copy()]
+    fracs_list = [init_state_fractions]
 
-    moms_list.append(moms)
-    fracs_list.append(fracs[-1])
+    simulate_pulses_p_dist_custom(state_fractions_grid=state_fractions_grid, mom_dist_grid=mom_dist_grid, state_vec_buffer=state_vec_buffer, 
+                                  pulse_seq=sequence, init_mom_dist=p_dist, basis=basis, initial_state=initial_state, beam_profile=beam_profile)
 
-    moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
+    moms_list.append(mom_dist_grid.ravel().copy())
+    fracs_list.append(state_fractions_grid[-1, :, :].ravel().copy())
 
-    moms_list.append(moms)
-    fracs_list.append(np.ones(len(moms)))
+    current_moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_dist_grid, state_fracs_grid=state_fractions_grid[-1,:,:], pumping_route=pumping_route)
+
+    moms_list.append(current_moms)
+    fracs_list.append(np.ones(len(current_moms)))
 
     zero_index = np.argmax(basis == 0) # returns index of 0
     reset_state = np.zeros(shape=len(basis), dtype=np.complex128) # we reset the atoms all into the ground state (p=0) and their momentum state info
     reset_state[zero_index] = 1                                   # is then purely contained in the doppler shift from the input momentum distribution for the next cycle
+
+    multiplier = 1
 
     for i in range(cycles-1):
 
@@ -367,15 +366,18 @@ def simulate_alg_cooling_custom(basis: np.ndarray, sequence: PulseSequence, time
             moms = moms*-1
             multiplier = (-1)**(i+1) # corrects the flip in the moms_list
 
-        moms, fracs, mom_grid, frac_grid = simulate_pulses_p_dist_custom(pulse_seq=sequence, init_mom_dist=moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
+        simulate_pulses_p_dist_custom(state_fractions_grid=state_fractions_grid, mom_dist_grid=mom_dist_grid, state_vec_buffer=state_vec_buffer, 
+                                      pulse_seq=sequence, init_mom_dist=current_moms, basis=basis, initial_state=reset_state, beam_profile=beam_profile)
 
-        moms_list.append(moms)
-        fracs_list.append(fracs[-1])
+        moms_list.append(mom_dist_grid.ravel().copy()*multiplier)
+        fracs_list.append(state_fractions_grid[-1, :, :].ravel().copy())
 
-        moms = simulate_optical_pumping(basis=basis, init_mom_dist_grid=mom_grid, state_fracs_grid=frac_grid[-1,:,:], pumping_route=pumping_route)
+        current_moms = simulate_optical_pumping(basis=basis, 
+                                                init_mom_dist_grid=mom_dist_grid, state_fracs_grid=state_fractions_grid[-1,:,:], 
+                                                pumping_route=pumping_route)
 
-        moms_list.append(moms)
-        fracs_list.append(np.ones(len(moms)))
+        moms_list.append(current_moms*multiplier)
+        fracs_list.append(np.ones(len(current_moms)))
     
     if save_dir != '':
         date_str = date.today().isoformat()
@@ -442,8 +444,8 @@ def simulate_alg_cooling_custom2(basis: np.ndarray, sequence: PulseSequence, tim
     
     if save_dir != '':
         date_str = date.today().isoformat()
-        file_name = f"{date_str}_algcooling_{pumping_route}_{cycles}cycles_{temp*1e6:.0f}muK_{n_atoms}atoms_{rabi_freq/(2*pi):.0g}Hz.h5"
+        file_name = f"{date_str}_algcooling_{pumping_route}_{cycles}cycles_{n_atoms}atoms_{rabi_freq/(2*pi):.0g}Hz.h5"
         file_path = Path(save_dir) / file_name
-        save_p_dists(file_path=file_path, p_list=moms_list, weights_list=fracs_list, init_temp=temp, n_atoms=n_atoms, basis=basis, init_state=initial_state, cycles=cycles, pumping_route=pumping_route, date=date_str)
+        save_p_dists(file_path=file_path, p_list=moms_list, weights_list=fracs_list, init_temp='na', n_atoms=n_atoms, basis=basis, init_state=initial_state, cycles=cycles, pumping_route=pumping_route, date=date_str)
 
     return moms_list, fracs_list
