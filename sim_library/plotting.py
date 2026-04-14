@@ -147,14 +147,17 @@ def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state
 
     print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
 
-def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(1,2, figsize=(9, 2.5), layout= 'constrained')
     axes = axes.flatten()
 
     peak_density=0
     for i in range(0,2):
-        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True, range=(basis[0], basis[-1]))
+        counts, bin_edges = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins = bins_list[i], density=True, range=datarange)
+        bindiff = bin_edges[1]-bin_edges[0]
+        binmids = bin_edges[:-1] + (bindiff/2)
+        axes[i].plot(binmids, counts, linewidth=1, c = 'royalblue')
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
         current = np.max(counts)
@@ -193,14 +196,17 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         else:
             print(f"'{save_dir}' already exists. Save aborted.")
 
-def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(2,2, figsize=(9, 5), layout= 'constrained')
     axes = axes.flatten()
     
     peak_density=0
     for i in range(0,4):
-        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True, range=(basis[0], basis[-1]))
+        counts, bin_edges = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins = bins_list[i], density=True, range=datarange)
+        bindiff = bin_edges[1]-bin_edges[0]
+        binmids = bin_edges[:-1] + (bindiff/2)
+        axes[i].plot(binmids, counts, linewidth=1, c = 'royalblue')
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
         current = np.max(counts)
@@ -240,14 +246,17 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
             print(f"'{save_dir}' already exists. Save aborted.")
         
 
-def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(3,2, figsize=(9, 7.5), layout= 'constrained')
     axes = axes.flatten()
 
     peak_density=0
     for i in range(0,6):
-        counts, _, _ = axes[i].hist(x = moms_list[index_list[i]], weights= fracs_list[index_list[i]], bins = bins_list[i], histtype='step', density=True, range=(basis[0], basis[-1]))
+        counts, bin_edges = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins = bins_list[i], density=True, range=datarange)
+        bindiff = bin_edges[1]-bin_edges[0]
+        binmids = bin_edges[:-1] + (bindiff/2)
+        axes[i].plot(binmids, counts, linewidth=1, c = 'royalblue')
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
         current = np.max(counts)
@@ -294,9 +303,9 @@ def gaussian(p, amp, T, mu):
     '''
     return (amp*hbar*k_eff/(np.sqrt(2*pi*m*kb*T)))*np.exp(-((hbar*k_eff)*(p-mu))**2/(2*kb*T*m))
 
-def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, lowlim: float, highlim: float, nbins: int, plot: bool = False, fit_npoints: int = 1000):
+def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, lowlim: float, highlim: float, nbins: int, plot: bool = False, fit_npoints: int = 1000):
 
-    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, density=True)
+    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, density=True, range=range)
     bindiff = bin_edges[1]-bin_edges[0]
 
     binmids = bin_edges[:-1] + (bindiff/2)
