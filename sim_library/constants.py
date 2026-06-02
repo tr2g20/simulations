@@ -1,6 +1,6 @@
 from scipy.constants import hbar, pi
 
-m = 85.47*1.6605e-27 # Rb-85 mass
+m = 84.91*1.6605e-27 # Rb-85 mass (note: i was using 85.47 before)
 kb = 1.38064852e-23 # Boltzmann's constant
 omega_2 = 2*pi*(384.230406373e12 - 1.264888e9) # Beam 2 freq.
 omega_1 = 2*pi*(384.230406373e12 + 1.770843e9) # Beam 1 freq.
