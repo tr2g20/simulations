@@ -6,20 +6,22 @@ from qutip import Bloch, Qobj, sigmax, sigmay, sigmaz, expect
 from tabulate import tabulate
 from pathlib import Path
 from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 from sim_library.constants import kb, m, pi, hbar, k_eff
 
 
 def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarray, basis: np.ndarray, title: str = 'State trajectories', contains_title: bool = True):
     """
-    Plots the state trajectories against time for a pulse sequence.
+    Plots the probability amplitudes of each state against time for a pulse sequence.
 
     Args:
-        ax: The Axes object to draw the histograms onto.
-        mom_vals: The 2D array of the state vector as a function of time.
+        ax: The Axes object to draw the trajectories onto.
+        wavefunc: The 2D array of the state vector as a function of time.
         time_array: The 1D array of the time steps.
         basis: The 1D array of momentum basis states (in integers of hbar*k_eff).
         title: The title for the plot.
-
+        contains_title: If True, adds the title to the plot.
+        
     """
     amplitudes = np.abs(wavefunc)**2
 
@@ -30,23 +32,34 @@ def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarr
     if contains_title:
         ax.set_title(f'{title}')
 
-def plot_hist(ax: Axes, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, n_atoms: int, temp: float, title: str = 'Momentum Distribution', contains_title: bool = True):
+def plot_hist(ax: Axes, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, basis:np.ndarray, n_atoms: int, temp: float, title: str = 'Momentum Distribution', contains_title: bool = True):
     """
     Plots the initial and final momentum distribution on one histogram. 
     Modifies the Axes object that is inputted.
 
     Args:
-        ax: The Axes object to draw the histograms onto.
-        mom_vals: A 1D array representing the possible momentum values.
-        fracs: A 2D array of corresponding state fractions at every time step.
-        n_bins: Number of bins for the histogram.
-        n_atoms: Total number of atoms.
-        temp: The temperature of the cloud in Kelvin.
-        title: The base title for the plot.
+        ax (Axes): The Axes object to draw the histograms onto.
+        mom_vals (np.ndarray): A 1D array representing the possible momentum values.
+        fracs (np.ndarray): A 2D array of corresponding state fractions at every time step.
+        n_bins (int): Number of bins for the histogram.
+        basis (np.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
+        n_atoms (int): Total number of atoms.
+        temp (float): The temperature of the cloud in Kelvin.
+        title (str): The base title for the plot.
 
     """
-    ax.hist(x= mom_vals, weights= fracs[0], bins = n_bins, histtype='step', density=True, label= 'Initial')
-    ax.hist(x= mom_vals, weights= fracs[-1], bins = n_bins, histtype='step', density=True, label= 'Final')
+    # ax.hist(x= mom_vals, weights= fracs[0], bins = n_bins, histtype='step', density=True, label= 'Initial')
+    # ax.hist(x= mom_vals, weights= fracs[-1], bins = n_bins, histtype='step', density=True, label= 'Final')
+    labels = ['Initial', 'Final']
+
+    for i in [0,-1]:
+        counts, bin_edges = np.histogram(mom_vals, weights=fracs[i], bins = n_bins, density=True)
+        bindiff = bin_edges[1]-bin_edges[0]
+        binmids = bin_edges[:-1] + (bindiff/2)
+        ax.plot(binmids, counts, linewidth=1, label=labels[i])
+        ax.set_xticks(basis[0::2], basis[0::2], fontsize = 9)
+        ax.set_xlim(basis[0],basis[-1])
+
     if contains_title:
         ax.set_title(rf"{title} ($N={n_atoms}$, $T={temp*1e6:.3g}\mu K$)")
     ax.set_ylabel('Probability Density')
@@ -54,6 +67,79 @@ def plot_hist(ax: Axes, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, n_
     ax.legend()
 
 def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, wavefunc: np.ndarray, times: np.ndarray, basis: np.ndarray, frame_interval: float, pause_time: float, mom_ylim: float):
+    """
+    Generates and saves an animated GIF of state trajectories and momentum distributions over time.
+    Each time step is used as a frame. For a gif with equal time steps use save_gif_interp.
+
+    Args:
+        filename (str): The file path and name to save the output GIF.
+        mom_vals (np.ndarray): A 1D array representing the possible momentum values.
+        fracs (np.ndarray): A 2D array of corresponding state fractions at every time step.
+        n_bins (int): The number of bins to use for the momentum histogram.
+        wavefunc (np.ndarray): 2D array of the state amplitudes (mod squared) plotted against time.
+        times (np.ndarray): 1D array of time steps in seconds.
+        basis (np.ndarray): 1D array of momentum basis states.
+        frame_interval (float): Delay between frames in milliseconds.
+        pause_time (float): The total duration in milliseconds to hold the final frame.
+        mom_ylim (float): The upper limit for the y-axis of the momentum distribution plot.
+    """
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 7.5), layout= 'constrained')
+
+    def update(frame):
+        ax1.clear() 
+        ax2.clear()
+        ax1.plot(times[:frame]*1e6, wavefunc[:frame])
+        ax1.set_ylim(0,1)
+        ax1.set_xlim(0, times[-1]*1e6)
+        ax1.legend(basis, loc='upper left')
+        ax1.set_ylabel('Probability Amplitude')
+        ax1.set_xlabel(r'Time ($\mu s$)')
+        ax1.set_title(rf'State amplitudes at time {times[frame]*1e6:.1f}$\mu$s')
+        ax2.set_ylim(0, mom_ylim)
+        ax2.set_xlabel(r"Momentum ($\hbar k_{eff}$)")
+        ax2.set_ylabel("Probability Density")
+        ax2.set_title(rf"Momentum distribution at time {times[frame]*1e6:.1f}$\mu$")
+        ax2.hist(x= mom_vals, weights= fracs[frame], bins = n_bins, histtype='step', density=True)
+
+    n_frames = len(fracs)
+    pause_frames = round(pause_time/frame_interval)
+    frame_indices = list(range(n_frames)) + [n_frames - 1] * pause_frames
+
+    print(f'{n_frames} frames')
+
+    ani = FuncAnimation(fig, update, frames=frame_indices, interval= frame_interval)
+    ani.save(filename, writer='pillow')
+
+def save_gif_interp(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, wavefunc: np.ndarray, times: np.ndarray, basis: np.ndarray, n_frames: int, frame_interval: float, pause_time: float, mom_ylim: float):
+    """
+    Generates and saves an animated GIF of state trajectories and momentum distributions over time.
+    The time steps of fracs and wavefunc arrays are adjusted to be equally spaced through linear interpolation. 
+    This ensures the time counter increases at a uniform rate (this doesnt work well at high Rabi frequencies 
+    as pulses are too short compared to freevolution).
+
+    Args:
+        filename (str): The file path and name to save the output GIF.
+        mom_vals (np.ndarray): A 1D array representing the possible momentum values.
+        fracs (np.ndarray): A 2D array of corresponding state fractions at every time step.
+        n_bins (int): The number of bins to use for the momentum histogram.
+        wavefunc (np.ndarray): 2D array of the state amplitudes (mod squared) plotted against time.
+        times (np.ndarray): 1D array of original time steps in seconds.
+        basis (np.ndarray): 1D array of momentum basis states.
+        n_frames (int): The number of linearly spaced frames to interpolate the animation over.
+        frame_interval (float): Delay between frames in milliseconds.
+        pause_time (float): The total duration in milliseconds to hold the final frame.
+        mom_ylim (float): The upper limit for the y-axis of the momentum distribution plot.
+    """
+    linear_times = np.linspace(times[0], times[-1], n_frames)
+
+    wavefunc_interpolator = interp1d(times, wavefunc, axis=0, kind='linear')
+    fracs_interpolator = interp1d(times, fracs, axis=0, kind='linear')
+    times = linear_times
+
+    wavefunc = wavefunc_interpolator(times)
+    fracs = fracs_interpolator(times)
+    
+    
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 7.5), layout= 'constrained')
 
     def update(frame):
@@ -95,6 +181,8 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
             wave function. Expected shape is (N, 2), where N is the number of
             time steps and the second dimension contains the complex amplitudes
             of the qubit state.
+        labels (list[str]): Labels for north and south poles of Bloch sphere.
+            Default is |0> and |1>.
     """
     states = []
     for i in range(len(wave_func)):
@@ -154,7 +242,7 @@ def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state
 
     print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
 
-def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(1,2, figsize=(9, 2.5), layout= 'constrained')
     axes = axes.flatten()
@@ -171,10 +259,10 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         if current > peak_density:
             peak_density = current
 
-    if ylims == 0:
+    if ylim == 0:
         top = peak_density*1.1
     else:
-        top = ylims
+        top = ylim
 
     yticks = np.arange(int(top*10)+1)*0.1
 
@@ -203,7 +291,7 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         else:
             print(f"'{save_dir}' already exists. Save aborted.")
 
-def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylim: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(2,2, figsize=(9, 5), layout= 'constrained')
     axes = axes.flatten()
@@ -220,10 +308,10 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
         if current > peak_density:
             peak_density = current
 
-    if ylims == 0:
+    if ylim == 0:
         top = peak_density*1.1
     else:
-        top = ylims
+        top = ylim
 
     yticks = np.arange(int(top*10)+1)*0.1
 
@@ -253,7 +341,7 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
             print(f"'{save_dir}' already exists. Save aborted.")
         
 
-def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylims: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
     
     fig, axes = plt.subplots(3,2, figsize=(9, 7.5), layout= 'constrained')
     axes = axes.flatten()
@@ -270,10 +358,10 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
         if current > peak_density:
             peak_density = current
 
-    if ylims == 0:
+    if ylim == 0:
         top = peak_density*1.1
     else:
-        top = ylims
+        top = ylim
 
     yticks = np.arange(int(top*10)+1)*0.1
 

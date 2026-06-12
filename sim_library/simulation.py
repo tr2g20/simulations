@@ -107,7 +107,8 @@ def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int,
     mom_dist_grid = init_mom_dist[np.newaxis, :] + (hbar * k_eff * basis[:, np.newaxis])
     
     mom_dist = np.ravel(mom_dist_grid) # do i need to copy these?
-    state_fractions = np.ravel(state_fractions_grid[-1, :, :])
+    # state_fractions = np.ravel(state_fractions_grid[-1, :, :])
+    state_fractions = state_fractions_grid.reshape(n_steps, -1)
     
     return mom_dist, state_fractions, mom_dist_grid, state_fractions_grid, rng_state
 
@@ -286,7 +287,7 @@ def simulate_alg_cooling(basis: np.ndarray, sequence: PulseSequence, n_atoms: in
 
     Returns:
         tuple: A tuple containing:
-            - moms_list (list[np.ndarray]): List of 1D arrays recording the complete momentum distribution at key stages.
+            - moms_list (list[np.ndarray]): List of 1D arrays recording the complete momentum distribution after each pulse sequence and each optical pumping.
             - fracs_list (list[np.ndarray]): List of 1D arrays recording the probability fractions corresponding to moms_list.
             - rng_state (dict): The seed dictionary from the random number generator.
     """
