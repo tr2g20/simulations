@@ -721,7 +721,7 @@ def swap45_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2)
     
     return swap45
 
-def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning 
 
@@ -762,7 +762,7 @@ def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = omega_e
                         pulse_1])
     return exchange21
 
-def exchange21short_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
 
     exchange21 = PulseSequence()
 
@@ -778,21 +778,21 @@ def exchange21short_gate(rabi_freq: float, time_steps: int, detuning: float = om
                         ])
     return exchange21
     
-def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def RR3long_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
     RR3 = PulseSequence()
 
     ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    ex21 = exchange21_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
+    ex21 = exchange21long_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
 
     RR3.add_pulses([ex10, ex21])
 
     return RR3
 
-def RR3short_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
     RR3 = PulseSequence()
 
     ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    ex21 = exchange21short_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
+    ex21 = exchange21_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
 
     RR3.add_pulses([ex10, ex21])
 

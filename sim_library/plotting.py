@@ -21,7 +21,9 @@ def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarr
         title: The title for the plot.
 
     """
-    ax.plot(time_array*1e-6, wavefunc)
+    amplitudes = np.abs(wavefunc)**2
+
+    ax.plot(time_array*1e6, amplitudes)
     ax.legend(basis, loc='upper left')
     ax.set_ylabel('Probability Amplitude')
     ax.set_xlabel(r'Time ($\mu s$)')
@@ -79,7 +81,7 @@ def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int
     ani = FuncAnimation(fig, update, frames=frame_indices, interval= frame_interval)
     ani.save(filename, writer='pillow')
 
-def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\rangle$', '$\\left| 1\\right\\rangle$']):
+def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\rangle$', '$\\left| 1\\right\\rangle$'], show=True):
     """
     Plots trajectory of single qubit state on the Bloch sphere.
     Colour-coded from blue to red (inital to final state)
@@ -119,7 +121,9 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
 
     b.zlabel = labels
 
-    b.show()
+    if show:
+        b.show()  
+          
     return b
 
 def display_table(basis: np.ndarray, wave_func: np.ndarray):
