@@ -21,7 +21,6 @@ def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarr
         basis: The 1D array of momentum basis states (in integers of hbar*k_eff).
         title: The title for the plot.
         contains_title: If True, adds the title to the plot.
-        
     """
     amplitudes = np.abs(wavefunc)**2
 
@@ -46,7 +45,7 @@ def plot_hist(ax: Axes, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, ba
         n_atoms (int): Total number of atoms.
         temp (float): The temperature of the cloud in Kelvin.
         title (str): The base title for the plot.
-
+        contains_title: If True, adds the title to the plot.
     """
     # ax.hist(x= mom_vals, weights= fracs[0], bins = n_bins, histtype='step', density=True, label= 'Initial')
     # ax.hist(x= mom_vals, weights= fracs[-1], bins = n_bins, histtype='step', density=True, label= 'Final')
@@ -78,7 +77,7 @@ def save_gif(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int
         n_bins (int): The number of bins to use for the momentum histogram.
         wavefunc (np.ndarray): 2D array of the state amplitudes (mod squared) plotted against time.
         times (np.ndarray): 1D array of time steps in seconds.
-        basis (np.ndarray): 1D array of momentum basis states.
+        basis (np.ndarray): 1D array of momentum basis states (in integers of hbar*k_eff).
         frame_interval (float): Delay between frames in milliseconds.
         pause_time (float): The total duration in milliseconds to hold the final frame.
         mom_ylim (float): The upper limit for the y-axis of the momentum distribution plot.
@@ -124,7 +123,7 @@ def save_gif_interp(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bi
         n_bins (int): The number of bins to use for the momentum histogram.
         wavefunc (np.ndarray): 2D array of the state amplitudes (mod squared) plotted against time.
         times (np.ndarray): 1D array of original time steps in seconds.
-        basis (np.ndarray): 1D array of momentum basis states.
+        basis (np.ndarray): 1D array of momentum basis states (in integers of hbar*k_eff).
         n_frames (int): The number of linearly spaced frames to interpolate the animation over.
         frame_interval (float): Delay between frames in milliseconds.
         pause_time (float): The total duration in milliseconds to hold the final frame.
@@ -183,6 +182,7 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
             of the qubit state.
         labels (list[str]): Labels for north and south poles of Bloch sphere.
             Default is |0> and |1>.
+        show (bool): If true runs fig.show() command for Bloch object.
     """
     states = []
     for i in range(len(wave_func)):
@@ -215,7 +215,15 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
     return b
 
 def display_table(basis: np.ndarray, wave_func: np.ndarray):
-    
+    """
+    Prints a formatted table displaying the index, momentum/binary representation, complex amplitude and
+    mod squared amplitude of each pure state.
+
+    Args:
+        basis (np.ndarray): 1D array of momentum basis states (in integers of hbar*k_eff).
+        wave_func (np.ndarray): 1D array of the complex state amplitudes.
+    """
+
     indices = np.arange(0, len(basis))
     binary = []
     for i in range(len(basis)):
@@ -228,6 +236,15 @@ def display_table(basis: np.ndarray, wave_func: np.ndarray):
     print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
 
 def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state: np.ndarray):
+    """
+    Prints a formatted table displaying the index, momentum/binary representation, complex amplitude and
+    mod squared amplitude of each pure state for two wavefunctions for comparison
+
+    Args:
+        basis (np.ndarray): 1D array of momentum basis states (in integers of hbar*k).
+        init_state (np.ndarray): 1D array of the initial complex state amplitudes.
+        final_state (np.ndarray): 1D array of the final complex state amplitudes.
+    """
 
     indices = np.arange(0, len(basis))
     binary_init = []
@@ -242,8 +259,26 @@ def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state
 
     print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
 
-def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
-    
+def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
+    """
+    Plots momentum distribution histograms in 1x2 panels for different numbers of cooling cycles.
+
+    Args:
+        moms_list (list): List of 1D arrays representing momentum distributions for each simulation step.
+        fracs_list (list): List of 1D arrays containing corresponding state fractions/weights.
+        basis (np.ndarray): 1D array of momentum basis states (in integers of hbar*k_eff).
+        datarange (tuple): The global (min, max) momentum values for generating the histograms.
+        cycles_list (np.ndarray): List of cycle numbers to label each subplot.
+        index_list (np.ndarray): List of indices of moms_list/fracs_list to plot.
+        bins_list (np.ndarray): List of number of histogram bins for each subplot.
+        title (str): The overall figure title.
+        ylim (float): Manual upper limit for the y-axis. If 0, scales automatically to 1.1x the peak density.
+        autoyticks (bool): If True, relies on Matplotlib for y-ticks. If False, manually calculates 0.1 increments.
+        temp (float): Initial temperature in Kelvin for labeling. Ignored if <= -1.
+        show (bool): If True, displays the figure.
+        save_dir (str): File path to save the generated plot. If empty, saving is skipped.
+    """
+
     fig, axes = plt.subplots(1,2, figsize=(9, 2.5), layout= 'constrained')
     axes = axes.flatten()
 
@@ -263,12 +298,13 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         top = peak_density*1.1
     else:
         top = ylim
-
-    yticks = np.arange(int(top*10)+1)*0.1
+    if not autoyticks:
+        yticks = np.arange(int(top*10)+1)*0.1
 
     for i in range(0,2):
         axes[i].set_ylim(0,top)
-        axes[i].set_yticks(yticks)
+        if not autoyticks:
+            axes[i].set_yticks(yticks)
         axes[i].text((len(basis)*0.81)+basis[0],top*0.9,rf'{cycles_list[i]} Cycles')
 
     axes[0].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
@@ -291,8 +327,26 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         else:
             print(f"'{save_dir}' already exists. Save aborted.")
 
-def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylim: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
-    
+def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
+    """
+    Plots momentum distribution histograms in 2x2 panels for different numbers of cooling cycles.
+
+    Args:
+        moms_list (list): List of 1D arrays representing momentum distributions for each simulation step.
+        fracs_list (list): List of 1D arrays containing corresponding state fractions/weights.
+        basis (np.ndarray): 1D array of momentum basis states (in integers of hbar*k_eff).
+        datarange (tuple): The global (min, max) momentum values for generating the histograms.
+        cycles_list (np.ndarray): List of cycle numbers to label each subplot.
+        index_list (np.ndarray): List of indices of moms_list/fracs_list to plot.
+        bins_list (np.ndarray): List of number of histogram bins for each subplot.
+        title (str): The overall figure title.
+        ylim (float): Manual upper limit for the y-axis. If 0, scales automatically to 1.1x the peak density.
+        autoyticks (bool): If True, relies on Matplotlib for y-ticks. If False, manually calculates 0.1 increments.
+        temp (float): Initial temperature in Kelvin for labeling. Ignored if <= -1.
+        show (bool): If True, displays the figure.
+        save_dir (str): File path to save the generated plot. If empty, saving is skipped.
+    """
+
     fig, axes = plt.subplots(2,2, figsize=(9, 5), layout= 'constrained')
     axes = axes.flatten()
     
@@ -313,11 +367,13 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
     else:
         top = ylim
 
-    yticks = np.arange(int(top*10)+1)*0.1
+    if not autoyticks:
+        yticks = np.arange(int(top*10)+1)*0.1
 
     for i in range(0,4):
         axes[i].set_ylim(0,top)
-        axes[i].set_yticks(yticks)
+        if not autoyticks:
+            axes[i].set_yticks(yticks)
         axes[i].text((len(basis)*0.81)+basis[0],top*0.9,rf'{cycles_list[i]} Cycles')
 
     axes[2].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
@@ -341,8 +397,26 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
             print(f"'{save_dir}' already exists. Save aborted.")
         
 
-def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, temp: float = -1, show: bool = True, save_dir: str = ''):
-    
+def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
+    """
+    Plots momentum distribution histograms in 3x2 panels for different numbers of cooling cycles.
+
+    Args:
+        moms_list (list): List of 1D arrays representing momentum distributions for each simulation step.
+        fracs_list (list): List of 1D arrays containing corresponding state fractions/weights.
+        basis (np.ndarray): 1D array of momentum basis states (in integers of hbar*k_eff).
+        datarange (tuple): The global (min, max) momentum values for generating the histograms.
+        cycles_list (np.ndarray): List of cycle numbers to label each subplot.
+        index_list (np.ndarray): List of indices of moms_list/fracs_list to plot.
+        bins_list (np.ndarray): List of number of histogram bins for each subplot.
+        title (str): The overall figure title.
+        ylim (float): Manual upper limit for the y-axis. If 0, scales automatically to 1.1x the peak density.
+        autoyticks (bool): If True, relies on Matplotlib for y-ticks. If False, manually calculates 0.1 increments.
+        temp (float): Initial temperature in Kelvin for labeling. Ignored if <= -1.
+        show (bool): If True, displays the figure.
+        save_dir (str): File path to save the generated plot. If empty, saving is skipped.
+    """
+
     fig, axes = plt.subplots(3,2, figsize=(9, 7.5), layout= 'constrained')
     axes = axes.flatten()
 
@@ -363,11 +437,13 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
     else:
         top = ylim
 
-    yticks = np.arange(int(top*10)+1)*0.1
+    if not autoyticks:
+        yticks = np.arange(int(top*10)+1)*0.1
 
     for i in range(0,6):
         axes[i].set_ylim(0,top)
-        axes[i].set_yticks(yticks)
+        if not autoyticks:
+            axes[i].set_yticks(yticks)
         axes[i].text((len(basis)*0.81)+basis[0],top*0.9,rf'{cycles_list[i]} Cycles')
 
     axes[4].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
@@ -399,6 +475,26 @@ def gaussian(p, amp, T, mu):
     return (amp*hbar*k_eff/(np.sqrt(2*pi*m*kb*T)))*np.exp(-((hbar*k_eff)*(p-mu))**2/(2*kb*T*m))
 
 def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, lowlim: float, highlim: float, nbins: int, plot: bool = False, fit_npoints: int = 1000):
+    """
+    Fits a Gaussian curve to a specified region of a momentum distribution histogram.
+
+    Args:
+        moms (np.ndarray): 1D array of momentum values.
+        fracs (np.ndarray): 1D array of corresponding state fractions/weights.
+        range (tuple): The (min, max) momentum values for generating the histogram.
+        lowlim (float): The lower momentum limit for truncating the data before fitting.
+        highlim (float): The upper momentum limit for truncating the data before fitting.
+        nbins (int): The number of histogram bins.
+        plot (bool): If True, plots the truncated histogram data alongside the fitted curve.
+        fit_npoints (int): The number of data points used to plot the fitted line in the plot.
+
+    Returns:
+        tuple: A tuple containing four elements:
+            - amp (float): The fitted amplitude of the Gaussian.
+            - T (float): The fitted width/temperature parameter.
+            - shift (float): The fitted center shift of the distribution.
+            - cov (np.ndarray): The 2D covariance matrix of the estimated parameters.
+    """
 
     counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, density=True, range=range)
     bindiff = bin_edges[1]-bin_edges[0]
