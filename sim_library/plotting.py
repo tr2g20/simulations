@@ -474,7 +474,126 @@ def gaussian(p, amp, T, mu):
     '''
     return (amp*hbar*k_eff/(np.sqrt(2*pi*m*kb*T)))*np.exp(-((hbar*k_eff)*(p-mu))**2/(2*kb*T*m))
 
-def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, lowlim: float, highlim: float, nbins: int, plot: bool = False, fit_npoints: int = 1000):
+def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, threshold: float = 0.5, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False):
+    """
+    Fits a Gaussian curve to the highest peak in a momentum distribution.
+
+    Args:
+        moms (np.ndarray): 1D array of momentum values.
+        fracs (np.ndarray): 1D array of corresponding state fractions/weights.
+        range (tuple): The (min, max) momentum values for generating the histogram.
+        nbins (int): The number of histogram bins.
+        threshold (float): The fraction of the peak density used to dynamically determine the truncation limits for the fit. Default is 0.5 (i.e. FWHM)
+        xscale (float): Scales the x-axis domain, centered on the fitted peak. Scaling is relative to the width of the truncated region. 
+            Default is 1 which plots purely the truncated region plus a half bin width buffer on either side.
+        plot (bool): If True, plots the truncated histogram data alongside the fitted curve.
+        print_vals (bool): If True, prints the fitted parameters and their standard errors.
+        fit_npoints (int): The number of data points used to plot the fitted line in the plot.
+        init_guess (list): Initial guess for the Gaussian parameters [amplitude, temperature, shift].
+        joindata (bool): If True, connects the plotted data points with a line.
+
+    Returns:
+        tuple: A tuple containing four elements:
+            - amp (float): The fitted amplitude of the Gaussian.
+            - T (float): The fitted width/temperature parameter.
+            - shift (float): The fitted center shift of the distribution.
+            - errs (np.ndarray): The 1D array of standard errors for the fitted parameters.
+    """
+
+    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, range=range)
+    
+    bindiff = bin_edges[1]-bin_edges[0]
+    binmids = bin_edges[:-1] + (bindiff/2)
+
+    # Convert to density
+    norm_factor = np.sum(counts) * bindiff
+    prob_density = counts / norm_factor
+
+    # Poisson error (sigma = root(N))
+    dataerr = np.sqrt(counts) / norm_factor
+
+    # Find indices around highest peak
+    peak_idx = np.argmax(prob_density)
+    valid_idx = np.where(prob_density >= threshold*prob_density[peak_idx])[0]
+    discontinuities = np.where(np.diff(valid_idx) > 1)[0] + 1 # Look where index jumps more than 1
+    split_data = np.split(valid_idx, discontinuities)
+    for block in split_data: # Find split block that contains the index of the peak
+        if peak_idx in block:
+            trunc_mask = block
+            break
+    
+    # Truncate
+    binmids_trunc = binmids[trunc_mask]
+    prob_density_trunc = prob_density[trunc_mask]
+    dataerr_trunc = dataerr[trunc_mask]
+
+    # Bounds for finding optimal params
+    lower_bounds = [0, 0, -np.inf]
+    upper_bounds = [np.inf, np.inf, np.inf]
+
+    # Assigns empty bins an error equal to 1 count to stop divide by zero in curve_fit
+    safe_dataerr = np.where(dataerr_trunc == 0, 1.0 / norm_factor, dataerr_trunc)
+
+    fitted_vals, cov = curve_fit(gaussian, binmids_trunc, prob_density_trunc, sigma=safe_dataerr, absolute_sigma=True, bounds=(lower_bounds, upper_bounds), p0=init_guess)
+
+    amp = fitted_vals[0]
+    T = fitted_vals[1]
+    shift = fitted_vals[2]
+    errs = np.sqrt(np.diag(cov))
+
+    if plot:
+        fig, ax = plt.subplots(dpi=100)
+
+        if xscale <= 1:
+            x_min = binmids_trunc[0] - (0.5*bindiff)
+            x_max = binmids_trunc[-1] + (0.5*bindiff)
+        else:
+            # Determine distance from peak to edge of FWHM
+            left_dist = abs(shift - binmids_trunc[0])
+            right_dist = abs(binmids_trunc[-1] - shift)
+            max_dist = max(left_dist, right_dist)
+            # Scale domain while keeping peak central
+            x_min = shift - (max_dist * xscale)
+            x_max = shift + (max_dist * xscale)
+
+        fit_x = np.linspace(x_min, x_max, fit_npoints)
+        fit_y = gaussian(fit_x, amp, T, shift)
+
+        if joindata:
+            data = ax.errorbar(binmids_trunc, prob_density_trunc, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='-', capsize=3, label=r'$p$ dist.', zorder=1000)
+            ax.errorbar(binmids, prob_density, yerr=dataerr, alpha = 0.3, c='rebeccapurple', marker='.', ls='-', capsize=3, label=r'$p$ dist.', zorder=999)
+        else:
+            data = ax.errorbar(binmids_trunc, prob_density_trunc, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='none', capsize=3, label=r'$p$ dist.', zorder=1000)
+            ax.errorbar(binmids, prob_density, yerr=dataerr, alpha = 0.3, c='rebeccapurple', marker='.', ls='none', capsize=3, label=r'$p$ dist.', zorder=999)
+        
+        fit, = ax.plot(fit_x, fit_y, c='orange', label='Gaussian fit')
+
+        # Monte carlo sample 1000 curves within 1sigma of optimal params
+        sample_params = np.random.multivariate_normal([amp, T, shift], cov, 1000)
+        sample_fits = np.array([gaussian(fit_x, *params) for params in sample_params])
+        
+        # 1-sigma boundaries (15.9th and 84.1st percentiles)
+        fiterr_low = np.percentile(sample_fits, 15.9, axis=0)
+        fiterr_high = np.percentile(sample_fits, 84.1, axis=0)
+        
+        # Shade the error region 
+        fill = ax.fill_between(fit_x, fiterr_low, fiterr_high, color='orange', alpha=0.3, label=r'$1\sigma$ band')
+
+        ax.grid()
+        ax.set_xlim(x_min,x_max)
+        ax.set_xlabel(r'$p$ $(\hbar k_{eff})$')
+        ax.set_ylabel(r'Probability density')
+        ax.legend(handles=[data,fit,fill],labels=[r'$p$ dist.', 'Gaussian fit', r'$1\sigma$ band'])
+        plt.show()
+    
+    if print_vals:
+        print(f'Efficiency: {amp*100:.5g} +/- {errs[0]:.5g} %')
+        print(f'Temperature: {T*1e6:.5g} +/- {errs[1]*1e6:.5g} muK')
+        print(f'Center: {shift:.5g} +/- {errs[2]:.5g} hbark')
+
+    return amp, T, shift, errs
+
+def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, trunc_lims: tuple, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False):
     """
     Fits a Gaussian curve to a specified region of a momentum distribution histogram.
 
@@ -482,46 +601,104 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, lowlim: floa
         moms (np.ndarray): 1D array of momentum values.
         fracs (np.ndarray): 1D array of corresponding state fractions/weights.
         range (tuple): The (min, max) momentum values for generating the histogram.
-        lowlim (float): The lower momentum limit for truncating the data before fitting.
-        highlim (float): The upper momentum limit for truncating the data before fitting.
         nbins (int): The number of histogram bins.
+        trunc_lims (tuple): The (lower, upper) momentum limits for truncating the data before fitting.
+        xscale (float): Scales the x-axis domain, centered on the fitted peak. Scaling is relative to the width of the truncated region. 
+            Default is 1 which plots purely the truncated region.
         plot (bool): If True, plots the truncated histogram data alongside the fitted curve.
+        print_vals (bool): If True, prints the fitted parameters and their standard errors.
         fit_npoints (int): The number of data points used to plot the fitted line in the plot.
+        init_guess (list): Initial guess for the Gaussian parameters [amplitude, temperature, shift].
+        joindata (bool): If True, connects the plotted data points with a line.
 
     Returns:
         tuple: A tuple containing four elements:
             - amp (float): The fitted amplitude of the Gaussian.
             - T (float): The fitted width/temperature parameter.
             - shift (float): The fitted center shift of the distribution.
-            - cov (np.ndarray): The 2D covariance matrix of the estimated parameters.
+            - errs (np.ndarray): The 1D array of standard errors for the fitted parameters.
     """
 
-    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, density=True, range=range)
+    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, range=range)
+    
     bindiff = bin_edges[1]-bin_edges[0]
-
     binmids = bin_edges[:-1] + (bindiff/2)
 
+    # Convert to density
+    norm_factor = np.sum(counts) * bindiff
+    prob_density = counts / norm_factor
 
-    binmids_trunc = binmids[(binmids >= lowlim) & (binmids <= highlim)]
-    counts_trunc = counts[(binmids >= lowlim) & (binmids <= highlim)]
+    # Poisson error (sigma = root(N))
+    dataerr = np.sqrt(counts) / norm_factor
 
-    fitted_vals, cov = curve_fit(gaussian, binmids_trunc, counts_trunc)
+    # Truncate
+    trunc_mask = (binmids >= trunc_lims[0]) & (binmids <= trunc_lims[1])
+    binmids_trunc = binmids[trunc_mask]
+    prob_density_trunc = prob_density[trunc_mask]
+    dataerr_trunc = dataerr[trunc_mask]
+
+    # Bounds for finding optimal params
+    lower_bounds = [0, 0, -np.inf]
+    upper_bounds = [np.inf, np.inf, np.inf]
+
+    # Assigns empty bins an error equal to 1 count to stop divide by zero in curve_fit
+    safe_dataerr = np.where(dataerr_trunc == 0, 1.0 / norm_factor, dataerr_trunc)
+
+    fitted_vals, cov = curve_fit(gaussian, binmids_trunc, prob_density_trunc, sigma=safe_dataerr, absolute_sigma=True, bounds=(lower_bounds, upper_bounds), p0=init_guess)
 
     amp = fitted_vals[0]
     T = fitted_vals[1]
     shift = fitted_vals[2]
-
+    errs = np.sqrt(np.diag(cov))
 
     if plot:
-        fit_x = np.linspace(-15, 15, fit_npoints)
+        fig, ax = plt.subplots(dpi=100)
+
+        if xscale <= 1:
+            x_min = trunc_lims[0]
+            x_max = trunc_lims[1]
+        else:
+            # Determine distance from peak to edge of FWHM
+            left_dist = abs(shift - binmids_trunc[0])
+            right_dist = abs(binmids_trunc[-1] - shift)
+            max_dist = max(left_dist, right_dist)
+            # Scale domain while keeping peak central
+            x_min = shift - (max_dist * xscale)
+            x_max = shift + (max_dist * xscale)
+
+        fit_x = np.linspace(x_min, x_max, fit_npoints)
         fit_y = gaussian(fit_x, amp, T, shift)
 
-        plt.plot(binmids_trunc, counts_trunc)
-        plt.plot(fit_x, fit_y)
-        plt.grid()
-        plt.xlim(lowlim,highlim)
-        plt.xlabel(r'$p$ $(\hbar k_{eff})$')
-        plt.ylabel(r'Probability density')
-        plt.show()
+        if joindata:
+            data = ax.errorbar(binmids_trunc, prob_density_trunc, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='-', capsize=3, label=r'$p$ dist.', zorder=1000)
+            ax.errorbar(binmids, prob_density, yerr=dataerr, alpha = 0.3, c='rebeccapurple', marker='.', ls='-', capsize=3, label=r'$p$ dist.', zorder=999)
+        else:
+            data = ax.errorbar(binmids_trunc, prob_density_trunc, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='none', capsize=3, label=r'$p$ dist.', zorder=1000)
+            ax.errorbar(binmids, prob_density, yerr=dataerr, alpha = 0.3, c='rebeccapurple', marker='.', ls='none', capsize=3, label=r'$p$ dist.', zorder=999)
+        
+        fit, = ax.plot(fit_x, fit_y, c='orange', label='Gaussian fit')
 
-    return amp, T, shift, cov
+        # Monte carlo sample 1000 curves within 1sigma of optimal params
+        sample_params = np.random.multivariate_normal([amp, T, shift], cov, 1000)
+        sample_fits = np.array([gaussian(fit_x, *params) for params in sample_params])
+        
+        # 1-sigma boundaries (15.9th and 84.1st percentiles)
+        fiterr_low = np.percentile(sample_fits, 15.9, axis=0)
+        fiterr_high = np.percentile(sample_fits, 84.1, axis=0)
+        
+        # Shade the error region 
+        fill = ax.fill_between(fit_x, fiterr_low, fiterr_high, color='orange', alpha=0.3, label=r'$1\sigma$ band')
+
+        ax.grid()
+        ax.set_xlim(x_min,x_max)
+        ax.set_xlabel(r'$p$ $(\hbar k_{eff})$')
+        ax.set_ylabel(r'Probability density')
+        ax.legend(handles=[data,fit,fill],labels=[r'$p$ dist.', 'Gaussian fit', r'$1\sigma$ band'])
+        plt.show()
+    
+    if print_vals:
+        print(f'Efficiency: {amp*100:.5g} +/- {errs[0]:.5g} %')
+        print(f'Temperature: {T*1e6:.5g} +/- {errs[1]*1e6:.5g} muK')
+        print(f'Center: {shift:.5g} +/- {errs[2]:.5g} hbark')
+
+    return amp, T, shift, errs
