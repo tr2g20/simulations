@@ -105,7 +105,7 @@ def gen_ham_plus(basis: np.ndarray, phi_L: float, omega_R_plus: float):
         omega_R_plus (float): Rabi frequency of upwards pulse in 2pi*Hz.
     
     Returns:
-        H0 (np.ndarray): A 2D array of shape (n_tot, n_tot) representing the drift Hamiltonian.
+        Hplus (np.ndarray): A 2D array of shape (n_tot, n_tot) representing the Hamiltonian for an upwards Raman pulse.
     """
     n_tot = len(basis)
 
@@ -133,7 +133,7 @@ def gen_ham_minus(basis: np.ndarray, phi_L: float, omega_R_minus: float):
         omega_R_minus (float): Rabi frequency of downwards pulse in 2pi*Hz.
     
     Returns:
-        H0 (np.ndarray): A 2D array of shape (n_tot, n_tot) representing the drift Hamiltonian.
+        Hminus (np.ndarray): A 2D array of shape (n_tot, n_tot) representing the Hamiltonian for a downwards Raman pulse.
     """
     n_tot = len(basis)
 
@@ -153,14 +153,15 @@ def gen_ham_minus(basis: np.ndarray, phi_L: float, omega_R_minus: float):
 @njit
 def time_evolve(state_vec: np.ndarray, dt: float, H: np.ndarray):
     """
-    Generates time evolution matrix from Hamiltonian
+    Calculates the time-evolved state vector using the given Hamiltonian.
 
     Args:
+        state_vec (np.ndarray): A 1D complex array representing the initial state vector.
         dt (float): Length of pulse/free evolution.
-        Hplus (np.ndarray): A 2D array representing the Hamiltonian (divided by hbar).
+        H (np.ndarray): A 2D array representing the total Hamiltonian (divided by hbar).
 
     Returns:
-        time_evol_mat (np.ndarray): A 2D array representing the time evolution operator for the input Hamiltonian.
+        new_state_vec (np.ndarray): A 1D complex array representing the updated state vector after time evolution.
     """
     eig_vals, eig_vecs = np.linalg.eigh(H)
     
@@ -175,7 +176,7 @@ def time_evolve_old(dt, H):
 
     Args:
         dt (float): Length of pulse/free evolution.
-        Hplus (np.ndarray): A 2D array representing the Hamiltonian (divided by hbar).
+        H (np.ndarray): A 2D array representing the total Hamiltonian (divided by hbar).
 
     Returns:
         time_evol_mat (np.ndarray): A 2D array representing the time evolution operator for the input Hamiltonian.

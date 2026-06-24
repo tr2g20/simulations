@@ -173,12 +173,12 @@ def simulate_pulses_single_atom(pulse_seq: PulseSequence, basis: np.ndarray, ini
 
     Args:
         pulse_seq (PulseSequence): The ordered sequence of pulses to be applied to each atom.
-        basis (numpy.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
-        initial_state (numpy.ndarray): The initial momentum state vector of a single atom (elements are np.complex128). 
+        basis (np.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
+        initial_state (np.ndarray): The initial momentum state vector of a single atom (elements are np.complex128). 
                                        
     Returns:
-        wave_func (numpy.ndarray): A 2D array of the wave function at every time step.
-        times (nump.ndarray): A 1D array of each time step (in seconds).
+        wave_func (np.ndarray): A 2D array of the wave function at every time step.
+        times (np.ndarray): A 1D array of each time step (in seconds).
 
     Raises:
         TypeError: If initial_state is not a complex np.ndarray.

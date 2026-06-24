@@ -8,6 +8,7 @@ from pathlib import Path
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 from sim_library.constants import kb, m, pi, hbar, k_eff
+from typing import Callable
 
 
 def plot_state_trajectories(ax: Axes, wavefunc: np.ndarray, time_array: np.ndarray, basis: np.ndarray, title: str = 'State trajectories', contains_title: bool = True):
@@ -47,8 +48,6 @@ def plot_hist(ax: Axes, mom_vals: np.ndarray, fracs: np.ndarray, n_bins: int, ba
         title (str): The base title for the plot.
         contains_title: If True, adds the title to the plot.
     """
-    # ax.hist(x= mom_vals, weights= fracs[0], bins = n_bins, histtype='step', density=True, label= 'Initial')
-    # ax.hist(x= mom_vals, weights= fracs[-1], bins = n_bins, histtype='step', density=True, label= 'Final')
     labels = ['Initial', 'Final']
 
     for i in [0,-1]:
@@ -309,7 +308,7 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
 
     axes[0].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
     axes[0].set_xlabel(r'$p$ ($\hbar k_{eff}$)')
-    axes[0].set_ylabel('Probability Density')
+    axes[1].set_ylabel('Probability Density')
     axes[1].set_ylabel('Probability Density')
 
     if temp > -1:
@@ -474,7 +473,7 @@ def gaussian(p, amp, T, mu):
     '''
     return (amp*hbar*k_eff/(np.sqrt(2*pi*m*kb*T)))*np.exp(-((hbar*k_eff)*(p-mu))**2/(2*kb*T*m))
 
-def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, threshold: float = 0.5, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False):
+def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, threshold: float = 0.5, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False, plot_residuals: bool = False):
     """
     Fits a Gaussian curve to the highest peak in a momentum distribution.
 
@@ -491,6 +490,7 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
         fit_npoints (int): The number of data points used to plot the fitted line in the plot.
         init_guess (list): Initial guess for the Gaussian parameters [amplitude, temperature, shift].
         joindata (bool): If True, connects the plotted data points with a line.
+        plot_residuals (bool): If True, displays extra plot showing the residuals between truncated data and Gaussian fit.
 
     Returns:
         tuple: A tuple containing four elements:
@@ -498,6 +498,8 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
             - T (float): The fitted width/temperature parameter.
             - shift (float): The fitted center shift of the distribution.
             - errs (np.ndarray): The 1D array of standard errors for the fitted parameters.
+            - chi2 (float): The reduced chi-squared value of the fit.
+            - residuals (np.ndarray): Difference of the truncated data and the Gaussian fit.
     """
 
     counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, range=range)
@@ -540,6 +542,14 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
     T = fitted_vals[1]
     shift = fitted_vals[2]
     errs = np.sqrt(np.diag(cov))
+
+    chi2, residuals = chi_squared(xdata=binmids_trunc, ydata=prob_density_trunc, errs=safe_dataerr, fit_params=fitted_vals, fit_func=gaussian)
+
+    if print_vals:
+        print(f'Efficiency: {amp*100:.5g} +/- {errs[0]:.5g} %')
+        print(f'Temperature: {T*1e6:.5g} +/- {errs[1]*1e6:.5g} muK')
+        print(f'Center: {shift:.5g} +/- {errs[2]:.5g} hbark')
+        print(f'Reduced chi-squared: {chi2:.5g}')
 
     if plot:
         fig, ax = plt.subplots(dpi=100)
@@ -584,16 +594,32 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
         ax.set_xlabel(r'$p$ $(\hbar k_{eff})$')
         ax.set_ylabel(r'Probability density')
         ax.legend(handles=[data,fit,fill],labels=[r'$p$ dist.', 'Gaussian fit', r'$1\sigma$ band'])
-        plt.show()
     
-    if print_vals:
-        print(f'Efficiency: {amp*100:.5g} +/- {errs[0]:.5g} %')
-        print(f'Temperature: {T*1e6:.5g} +/- {errs[1]*1e6:.5g} muK')
-        print(f'Center: {shift:.5g} +/- {errs[2]:.5g} hbark')
 
-    return amp, T, shift, errs
+    if plot_residuals:
+        fig2, ax2 = plt.subplots(dpi=100)
+        
+        ax2.errorbar(binmids_trunc, residuals, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='none', capsize=5, zorder=1000)
+        ax2.plot(binmids_trunc, residuals, c='rebeccapurple', ls='-', alpha=0.4, zorder=999)
+        ax2.plot([binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)],[0,0], c='tab:orange', ls='--', alpha= 1, zorder=998)
+        ax2.set_xlim(binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)) # Add padding
 
-def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, trunc_lims: tuple, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False):
+        # Find furthest distance from zero to set ylims
+        resi_tops = residuals + dataerr_trunc
+        resi_bots = residuals - dataerr_trunc
+        resi_max = np.max([np.max(resi_tops),np.max(resi_bots)])
+        ax2.set_ylim(-resi_max*1.1,resi_max*1.1)
+
+        ax2.set_xlabel(r'$p$ $(\hbar k_{eff})$')
+        ax2.set_ylabel(r'Probability density')
+        ax2.set_title(r'Residuals ($p$ dist. $-$ Gaussian fit)')
+        ax2.grid()
+    
+    plt.show()
+    
+    return amp, T, shift, errs, chi2, residuals
+
+def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, trunc_lims: tuple, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False, plot_residuals: bool = False):
     """
     Fits a Gaussian curve to a specified region of a momentum distribution histogram.
 
@@ -610,6 +636,7 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
         fit_npoints (int): The number of data points used to plot the fitted line in the plot.
         init_guess (list): Initial guess for the Gaussian parameters [amplitude, temperature, shift].
         joindata (bool): If True, connects the plotted data points with a line.
+        plot_residuals (bool): If True, displays extra plot showing the residuals between truncated data and Gaussian fit.
 
     Returns:
         tuple: A tuple containing four elements:
@@ -617,6 +644,8 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
             - T (float): The fitted width/temperature parameter.
             - shift (float): The fitted center shift of the distribution.
             - errs (np.ndarray): The 1D array of standard errors for the fitted parameters.
+            - chi2 (float): The reduced chi-squared value of the fit.
+            - residuals (np.ndarray): Difference of the truncated data and the Gaussian fit.
     """
 
     counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, range=range)
@@ -651,6 +680,14 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
     shift = fitted_vals[2]
     errs = np.sqrt(np.diag(cov))
 
+    chi2, residuals = chi_squared(xdata=binmids_trunc, ydata=prob_density_trunc, errs=safe_dataerr, fit_params=fitted_vals, fit_func=gaussian)
+
+    if print_vals:
+        print(f'Efficiency: {amp*100:.5g} +/- {errs[0]:.5g} %')
+        print(f'Temperature: {T*1e6:.5g} +/- {errs[1]*1e6:.5g} muK')
+        print(f'Center: {shift:.5g} +/- {errs[2]:.5g} hbark')
+        print(f'Reduced chi-squared: {chi2:.5g}')
+
     if plot:
         fig, ax = plt.subplots(dpi=100)
 
@@ -658,7 +695,7 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
             x_min = trunc_lims[0]
             x_max = trunc_lims[1]
         else:
-            # Determine distance from peak to edge of FWHM
+            # Determine distance from peak to edge of truncated region
             left_dist = abs(shift - binmids_trunc[0])
             right_dist = abs(binmids_trunc[-1] - shift)
             max_dist = max(left_dist, right_dist)
@@ -694,11 +731,60 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
         ax.set_xlabel(r'$p$ $(\hbar k_{eff})$')
         ax.set_ylabel(r'Probability density')
         ax.legend(handles=[data,fit,fill],labels=[r'$p$ dist.', 'Gaussian fit', r'$1\sigma$ band'])
-        plt.show()
     
-    if print_vals:
-        print(f'Efficiency: {amp*100:.5g} +/- {errs[0]:.5g} %')
-        print(f'Temperature: {T*1e6:.5g} +/- {errs[1]*1e6:.5g} muK')
-        print(f'Center: {shift:.5g} +/- {errs[2]:.5g} hbark')
+    if plot_residuals:
+        fig2, ax2 = plt.subplots(dpi=100)
+        
+        ax2.errorbar(binmids_trunc, residuals, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='none', capsize=5, zorder=1000)
+        ax2.plot(binmids_trunc, residuals, c='rebeccapurple', ls='-', alpha=0.4, zorder=999)
+        ax2.plot([binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)],[0,0], c='tab:orange', ls='--', alpha= 1, zorder=998)
+        ax2.set_xlim(binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)) # Add padding
 
-    return amp, T, shift, errs
+        # Find furthest distance from zero to set ylims
+        resi_tops = residuals + dataerr_trunc
+        resi_bots = residuals - dataerr_trunc
+        resi_max = np.max([np.max(resi_tops),np.max(resi_bots)])
+        ax2.set_ylim(-resi_max*1.1,resi_max*1.1)
+
+        ax2.set_xlabel(r'$p$ $(\hbar k_{eff})$')
+        ax2.set_ylabel(r'Probability density')
+        ax2.set_title(r'Residuals ($p$ dist. $-$ Gaussian fit)')
+        ax2.grid()
+    
+    plt.show()
+    
+    return amp, T, shift, errs, chi2, residuals
+
+def chi_squared(xdata: np.ndarray, ydata: np.ndarray, errs: np.ndarray, fit_params: list, fit_func: Callable):
+    """
+    Calculates the reduced chi-squared value and the residuals for a given fit. 
+
+    Args:
+        xdata (np.ndarray): 1D array of independent variable values.
+        ydata (np.ndarray): 1D array of observed dependent variable values.
+        errs (np.ndarray): 1D array of uncertainties/errors corresponding to ydata.
+        fit_params (list): The optimal fitted parameters to be unpacked into the model function.
+        fit_func (Callable): The mathematical model used for the fit. Must accept xdata as its 
+            first argument, followed by the individual parameters.
+
+    Raises:
+        ValueError: If the number of data points is less than or equal to the number of parameters.
+
+    Returns:
+        tuple: A tuple containing two elements:
+            - chi2 (float): The reduced chi-squared value.
+            - residuals (np.ndarray): 1D array of the residuals (ydata - fitdata).
+    """
+
+    deg_free = len(ydata) - len(fit_params)
+
+    if deg_free <= 0:
+        raise ValueError(f"Degrees of freedom must be > 0. Got n={len(ydata)}, m={len(fit_params)}.")
+
+    fitdata = fit_func(xdata, *fit_params)
+
+    residuals = ydata - fitdata
+
+    chi2 = np.sum(residuals**2/(errs**2))/deg_free
+
+    return chi2, residuals

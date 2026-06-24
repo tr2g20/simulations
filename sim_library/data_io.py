@@ -4,6 +4,25 @@ from pathlib import Path
 
 
 def save_p_dists(file_path: Path, p_list: list, weights_list: list, init_temp, n_atoms: int, basis: np.ndarray, init_state: np.ndarray, cycles: int, pumping_route: str, date: str):
+    """
+    Saves lists of momentum distributions and weights, as well as simulation metadata to a HDF5 file.
+
+    Automatically creates parent directories if they do not exist. Prevents 
+    overwriting by appending an incremental counter to the filename if a file 
+    with the target name is already present.
+
+    Args:
+        file_path (Path): Destination path for the HDF5 file.
+        p_list (list): List of 1D arrays representing momentum distributions.
+        weights_list (list): List of 1D arrays recording the probability fractions corresponding to p_list.
+        init_temp (float): Initial temperature in Kelvin.
+        n_atoms (int): Number of atoms in the ensemble.
+        basis (np.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
+        init_state (np.ndarray): The initial momentum state vector of a single atom (elements are np.complex128).
+        cycles (int): Number of simulation cycles executed.
+        pumping_route (str): Identifier for the pumping route used.
+        date (str): Creation date or timestamp for the dataset.
+    """
 
     file_path.parent.mkdir(parents=True, exist_ok=True) # creates directories in file path if they dont exist
 
@@ -36,6 +55,24 @@ def save_p_dists(file_path: Path, p_list: list, weights_list: list, init_temp, n
             current_path = file_path.with_name(new_name)
 
 def load_p_dists(file_path: Path) -> dict:
+    """
+    Loads lists of momentum distributions and weights, as well as simulation metadata from a HDF5 file.
+
+    Args:
+        file_path (Path): Path to the HDF5 file to be read.
+
+    Returns:
+        dict: A dictionary containing the extracted data with the following keys:
+            - 'p_list' (list): List of 1D arrays representing momentum distributions.
+            - 'weights_list' (list): List of 1D arrays recording the probability fractions corresponding to p_list.
+            - 'init_temp' (float): Initial temperature in Kelvin.
+            - 'n_atoms' (int): Number of atoms in the ensemble.
+            - 'date_created' (str): Creation date or timestamp for the dataset.
+            - 'basis' (np.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
+            - 'initial_state' (np.ndarray): The initial momentum state vector of a single atom (elements are np.complex128).
+            - 'cycles' (int): Number of simulation cycles executed.
+            - 'pumping_route' (str): Identifier for the pumping route used.
+    """
 
     with h5py.File(file_path, 'r') as f:
         init_temp = f.attrs['initial_temp']
