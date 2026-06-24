@@ -258,7 +258,7 @@ def display_table_compare(basis: np.ndarray, init_state: np.ndarray, final_state
 
     print(tabulate(data, headers=titles, tablefmt="grid", stralign="right"))
 
-def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bin_width: float, title: str = '', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
     """
     Plots momentum distribution histograms in 1x2 panels for different numbers of cooling cycles.
 
@@ -269,7 +269,7 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         datarange (tuple): The global (min, max) momentum values for generating the histograms.
         cycles_list (np.ndarray): List of cycle numbers to label each subplot.
         index_list (np.ndarray): List of indices of moms_list/fracs_list to plot.
-        bins_list (np.ndarray): List of number of histogram bins for each subplot.
+        bin_width (float): Width of each histogram bin (in units of hbar*k_eff).
         title (str): The overall figure title.
         ylim (float): Manual upper limit for the y-axis. If 0, scales automatically to 1.1x the peak density.
         autoyticks (bool): If True, relies on Matplotlib for y-ticks. If False, manually calculates 0.1 increments.
@@ -281,14 +281,22 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
     fig, axes = plt.subplots(1,2, figsize=(9, 2.5), layout= 'constrained')
     axes = axes.flatten()
 
+    # Generate fixed bin edges with p=0 at a bin centre
+    edge_min = np.floor(datarange[0] / bin_width)
+    edge_max = np.ceil(datarange[1] / bin_width)
+    bin_edges = (np.arange(edge_min, edge_max + 2) - 0.5) * bin_width
+
+    # Bin centres for plotting
+    binmids = bin_edges[:-1] + (bin_width/2) 
+
     peak_density=0
     for i in range(0,2):
-        counts, bin_edges = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins = bins_list[i], density=True, range=datarange)
-        bindiff = bin_edges[1]-bin_edges[0]
-        binmids = bin_edges[:-1] + (bindiff/2)
+        counts, _ = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins = bin_edges, density=True)
+ 
         axes[i].plot(binmids, counts, linewidth=1, c = 'royalblue')
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
+
         current = np.max(counts)
         if current > peak_density:
             peak_density = current
@@ -326,7 +334,7 @@ def plot_coolingcycles_21(moms_list: list, fracs_list: list, basis: np.ndarray, 
         else:
             print(f"'{save_dir}' already exists. Save aborted.")
 
-def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str ='', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bin_width: float, title: str ='', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
     """
     Plots momentum distribution histograms in 2x2 panels for different numbers of cooling cycles.
 
@@ -337,7 +345,7 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
         datarange (tuple): The global (min, max) momentum values for generating the histograms.
         cycles_list (np.ndarray): List of cycle numbers to label each subplot.
         index_list (np.ndarray): List of indices of moms_list/fracs_list to plot.
-        bins_list (np.ndarray): List of number of histogram bins for each subplot.
+        bin_width (float): Width of each histogram bin (in units of hbar*k_eff).
         title (str): The overall figure title.
         ylim (float): Manual upper limit for the y-axis. If 0, scales automatically to 1.1x the peak density.
         autoyticks (bool): If True, relies on Matplotlib for y-ticks. If False, manually calculates 0.1 increments.
@@ -349,11 +357,17 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
     fig, axes = plt.subplots(2,2, figsize=(9, 5), layout= 'constrained')
     axes = axes.flatten()
     
+    # Generate fixed bin edges with p=0 at a bin centre
+    edge_min = np.floor(datarange[0] / bin_width)
+    edge_max = np.ceil(datarange[1] / bin_width)
+    bin_edges = (np.arange(edge_min, edge_max + 2) - 0.5) * bin_width
+
+    # Bin centres for plotting
+    binmids = bin_edges[:-1] + (bin_width/2) 
+
     peak_density=0
     for i in range(0,4):
-        counts, bin_edges = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins = bins_list[i], density=True, range=datarange)
-        bindiff = bin_edges[1]-bin_edges[0]
-        binmids = bin_edges[:-1] + (bindiff/2)
+        counts, _ = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins=bin_edges, density=True)
         axes[i].plot(binmids, counts, linewidth=1, c = 'royalblue')
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
@@ -396,7 +410,7 @@ def plot_coolingcycles_22(moms_list: list, fracs_list: list, basis: np.ndarray, 
             print(f"'{save_dir}' already exists. Save aborted.")
         
 
-def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bins_list: np.ndarray, title: str = '', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
+def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, datarange: tuple, cycles_list: np.ndarray, index_list: np.ndarray, bin_width: float, title: str = '', ylim: float = 0, autoyticks: bool = False, temp: float = -1, show: bool = True, save_dir: str = ''):
     """
     Plots momentum distribution histograms in 3x2 panels for different numbers of cooling cycles.
 
@@ -407,7 +421,7 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
         datarange (tuple): The global (min, max) momentum values for generating the histograms.
         cycles_list (np.ndarray): List of cycle numbers to label each subplot.
         index_list (np.ndarray): List of indices of moms_list/fracs_list to plot.
-        bins_list (np.ndarray): List of number of histogram bins for each subplot.
+        bin_width (float): Width of each histogram bin (in units of hbar*k_eff).
         title (str): The overall figure title.
         ylim (float): Manual upper limit for the y-axis. If 0, scales automatically to 1.1x the peak density.
         autoyticks (bool): If True, relies on Matplotlib for y-ticks. If False, manually calculates 0.1 increments.
@@ -419,11 +433,17 @@ def plot_coolingcycles_23(moms_list: list, fracs_list: list, basis: np.ndarray, 
     fig, axes = plt.subplots(3,2, figsize=(9, 7.5), layout= 'constrained')
     axes = axes.flatten()
 
+    # Generate fixed bin edges with p=0 at a bin centre
+    edge_min = np.floor(datarange[0] / bin_width)
+    edge_max = np.ceil(datarange[1] / bin_width)
+    bin_edges = (np.arange(edge_min, edge_max + 2) - 0.5) * bin_width
+
+    # Bin centres for plotting
+    binmids = bin_edges[:-1] + (bin_width/2) 
+
     peak_density=0
     for i in range(0,6):
-        counts, bin_edges = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins = bins_list[i], density=True, range=datarange)
-        bindiff = bin_edges[1]-bin_edges[0]
-        binmids = bin_edges[:-1] + (bindiff/2)
+        counts, _ = np.histogram(moms_list[index_list[i]], weights=fracs_list[index_list[i]], bins=bin_edges, density=True)
         axes[i].plot(binmids, counts, linewidth=1, c = 'royalblue')
         axes[i].set_xticks(basis[0::2], basis[0::2], fontsize = 9)
         axes[i].set_xlim(basis[0],basis[-1])
@@ -473,7 +493,7 @@ def gaussian(p, amp, T, mu):
     '''
     return (amp*hbar*k_eff/(np.sqrt(2*pi*m*kb*T)))*np.exp(-((hbar*k_eff)*(p-mu))**2/(2*kb*T*m))
 
-def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, threshold: float = 0.5, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False, plot_residuals: bool = False):
+def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, bin_width: float, threshold: float = 0.5, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False, plot_residuals: bool = False):
     """
     Fits a Gaussian curve to the highest peak in a momentum distribution.
 
@@ -481,7 +501,7 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
         moms (np.ndarray): 1D array of momentum values.
         fracs (np.ndarray): 1D array of corresponding state fractions/weights.
         range (tuple): The (min, max) momentum values for generating the histogram.
-        nbins (int): The number of histogram bins.
+        bin_width (float): Width of each histogram bin (in units of hbar*k_eff).
         threshold (float): The fraction of the peak density used to dynamically determine the truncation limits for the fit. Default is 0.5 (i.e. FWHM)
         xscale (float): Scales the x-axis domain, centered on the fitted peak. Scaling is relative to the width of the truncated region. 
             Default is 1 which plots purely the truncated region plus a half bin width buffer on either side.
@@ -502,13 +522,18 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
             - residuals (np.ndarray): Difference of the truncated data and the Gaussian fit.
     """
 
-    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, range=range)
-    
-    bindiff = bin_edges[1]-bin_edges[0]
-    binmids = bin_edges[:-1] + (bindiff/2)
+    # Generate fixed bin edges with p=0 at a bin centre
+    edge_min = np.floor(range[0] / bin_width)
+    edge_max = np.ceil(range[1] / bin_width)
+    bin_edges = (np.arange(edge_min, edge_max + 2) - 0.5) * bin_width
+
+    # Bin centres
+    binmids = bin_edges[:-1] + (bin_width/2) 
+
+    counts, _ = np.histogram(moms, weights=fracs, bins = bin_edges)
 
     # Convert to density
-    norm_factor = np.sum(counts) * bindiff
+    norm_factor = np.sum(counts) * bin_width
     prob_density = counts / norm_factor
 
     # Poisson error (sigma = root(N))
@@ -555,8 +580,8 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
         fig, ax = plt.subplots(dpi=100)
 
         if xscale <= 1:
-            x_min = binmids_trunc[0] - (0.5*bindiff)
-            x_max = binmids_trunc[-1] + (0.5*bindiff)
+            x_min = binmids_trunc[0] - (0.5*bin_width)
+            x_max = binmids_trunc[-1] + (0.5*bin_width)
         else:
             # Determine distance from peak to edge of FWHM
             left_dist = abs(shift - binmids_trunc[0])
@@ -601,8 +626,8 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
         
         ax2.errorbar(binmids_trunc, residuals, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='none', capsize=5, zorder=1000)
         ax2.plot(binmids_trunc, residuals, c='rebeccapurple', ls='-', alpha=0.4, zorder=999)
-        ax2.plot([binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)],[0,0], c='tab:orange', ls='--', alpha= 1, zorder=998)
-        ax2.set_xlim(binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)) # Add padding
+        ax2.plot([binmids_trunc[0]-(0.5*bin_width),binmids_trunc[-1]+(0.5*bin_width)],[0,0], c='tab:orange', ls='--', alpha= 1, zorder=998)
+        ax2.set_xlim(binmids_trunc[0]-(0.5*bin_width),binmids_trunc[-1]+(0.5*bin_width)) # Add padding
 
         # Find furthest distance from zero to set ylims
         resi_tops = residuals + dataerr_trunc
@@ -619,7 +644,7 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, 
     
     return amp, T, shift, errs, chi2, residuals
 
-def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins: int, trunc_lims: tuple, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False, plot_residuals: bool = False):
+def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, bin_width: float, trunc_lims: tuple, xscale: float = 1, plot: bool = False, print_vals = True, fit_npoints: int = 1000, init_guess: list = [1.0, 1e-6, 0.0], joindata: bool = False, plot_residuals: bool = False):
     """
     Fits a Gaussian curve to a specified region of a momentum distribution histogram.
 
@@ -627,7 +652,7 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
         moms (np.ndarray): 1D array of momentum values.
         fracs (np.ndarray): 1D array of corresponding state fractions/weights.
         range (tuple): The (min, max) momentum values for generating the histogram.
-        nbins (int): The number of histogram bins.
+        bin_width (float): Width of each histogram bin (in units of hbar*k_eff).
         trunc_lims (tuple): The (lower, upper) momentum limits for truncating the data before fitting.
         xscale (float): Scales the x-axis domain, centered on the fitted peak. Scaling is relative to the width of the truncated region. 
             Default is 1 which plots purely the truncated region.
@@ -648,13 +673,18 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
             - residuals (np.ndarray): Difference of the truncated data and the Gaussian fit.
     """
 
-    counts, bin_edges = np.histogram(moms, weights=fracs, bins = nbins, range=range)
-    
-    bindiff = bin_edges[1]-bin_edges[0]
-    binmids = bin_edges[:-1] + (bindiff/2)
+    # Generate fixed bin edges with p=0 at a bin centre
+    edge_min = np.floor(range[0] / bin_width)
+    edge_max = np.ceil(range[1] / bin_width)
+    bin_edges = (np.arange(edge_min, edge_max + 2) - 0.5) * bin_width
+
+    # Bin centres
+    binmids = bin_edges[:-1] + (bin_width/2) 
+
+    counts, _ = np.histogram(moms, weights=fracs, bins=bin_edges)
 
     # Convert to density
-    norm_factor = np.sum(counts) * bindiff
+    norm_factor = np.sum(counts) * bin_width
     prob_density = counts / norm_factor
 
     # Poisson error (sigma = root(N))
@@ -737,8 +767,8 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, nbins
         
         ax2.errorbar(binmids_trunc, residuals, yerr=dataerr_trunc, c='rebeccapurple', marker='.', ls='none', capsize=5, zorder=1000)
         ax2.plot(binmids_trunc, residuals, c='rebeccapurple', ls='-', alpha=0.4, zorder=999)
-        ax2.plot([binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)],[0,0], c='tab:orange', ls='--', alpha= 1, zorder=998)
-        ax2.set_xlim(binmids_trunc[0]-(0.5*bindiff),binmids_trunc[-1]+(0.5*bindiff)) # Add padding
+        ax2.plot([binmids_trunc[0]-(0.5*bin_width),binmids_trunc[-1]+(0.5*bin_width)],[0,0], c='tab:orange', ls='--', alpha= 1, zorder=998)
+        ax2.set_xlim(binmids_trunc[0]-(0.5*bin_width),binmids_trunc[-1]+(0.5*bin_width)) # Add padding
 
         # Find furthest distance from zero to set ylims
         resi_tops = residuals + dataerr_trunc
