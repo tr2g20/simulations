@@ -745,3 +745,86 @@ def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
     RR3.add_pulses([ex10, ex21])
 
     return RR3
+
+def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = omega_eg/2):
+    """
+    RR3 sequence using adjusted MDFE durations optimised for 500kHz Rabi frequency.
+    """
+    rabi_freq = 2*pi*5e5
+    rabi_time = 2*pi/rabi_freq
+    free_time = 2*pi/detuning 
+
+    ex10 = PulseSequence()
+    pulse_1 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # down pi/2, phi=0
+    MDFE_1 = gen_MDFEup_seq(free_time=0.12879*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/4
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=5*free_time/8) # 5pi/4 
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=free_time/2) # pi
+    ex10.add_pulses([pulse_1,
+                    freevolve_1,
+                    MDFE_1,
+                    pulse_1,
+                    freevolve_2])
+
+    swap23 = PulseSequence()
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # up pi/2, phi=0
+    MDFE_1 = gen_MDFEdown_seq(free_time=0.0054805*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=7*free_time/16) # 7pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=3*free_time/16) # 3pi/8
+    swap23.add_pulses([pulse_1,
+                        freevolve_1,
+                        MDFE_1,
+                        pulse_1,
+                        freevolve_2,
+                        MDFE_1,
+                        pulse_1,
+                        freevolve_1,
+                        MDFE_1,
+                        pulse_1
+                        ])
+
+    swap34 = PulseSequence()
+    pulse_1 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # down pi/2, phi=0
+    MDFE_1 = gen_MDFEup_seq(free_time=0.0037871*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=5*free_time/16) # 5pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=free_time/16) # pi/8 
+    swap34.add_pulses([pulse_1,
+                        freevolve_1,
+                        MDFE_1,
+                        pulse_1,
+                        freevolve_2,
+                        MDFE_1,
+                        pulse_1,
+                        freevolve_1,
+                        MDFE_1,
+                        pulse_1,
+                        ])
+   
+    swap45 = PulseSequence()
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # up pi/2, phi=0
+    MDFE_1 = gen_MDFEdown_seq(free_time=0.0054805*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) #pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=3*free_time/16) #3pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=15*free_time/16) #15pi/8
+    swap45.add_pulses([pulse_1,
+                        freevolve_1,
+                        MDFE_1,
+                        pulse_1,
+                        freevolve_2,
+                        MDFE_1,
+                        pulse_1,
+                        freevolve_1,
+                        MDFE_1,
+                        pulse_1,
+                        ])
+
+    ex21 = PulseSequence()
+    ex21.add_pulses([
+                        swap34,
+                        swap23,
+                        swap45,
+                        swap34,
+                        ])
+
+    RR3 = PulseSequence()
+    RR3.add_pulses([ex10, ex21])
+
+    return RR3
