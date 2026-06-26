@@ -605,7 +605,9 @@ def fit_gaussian(moms: np.ndarray, fracs: np.ndarray, range: tuple, bin_width: f
 
         # Monte carlo sample 1000 curves within 1sigma of optimal params
         sample_params = np.random.multivariate_normal([amp, T, shift], cov, 1000)
-        sample_fits = np.array([gaussian(fit_x, *params) for params in sample_params])
+        # Filter out unphysical negative amplitudes or temperatures
+        valid_params = sample_params[(sample_params[:, 0] > 0) & (sample_params[:, 1] > 0)]
+        sample_fits = np.array([gaussian(fit_x, *params) for params in valid_params])
         
         # 1-sigma boundaries (15.9th and 84.1st percentiles)
         fiterr_low = np.percentile(sample_fits, 15.9, axis=0)
@@ -747,7 +749,9 @@ def fit_gaussian_custom(moms: np.ndarray, fracs: np.ndarray, range: tuple, bin_w
 
         # Monte carlo sample 1000 curves within 1sigma of optimal params
         sample_params = np.random.multivariate_normal([amp, T, shift], cov, 1000)
-        sample_fits = np.array([gaussian(fit_x, *params) for params in sample_params])
+        # Filter out unphysical negative amplitudes or temperatures
+        valid_params = sample_params[(sample_params[:, 0] > 0) & (sample_params[:, 1] > 0)]
+        sample_fits = np.array([gaussian(fit_x, *params) for params in valid_params])
         
         # 1-sigma boundaries (15.9th and 84.1st percentiles)
         fiterr_low = np.percentile(sample_fits, 15.9, axis=0)
