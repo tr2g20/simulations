@@ -17,8 +17,8 @@ class Pulse:
         self.laser_det = laser_det
         self.duration = duration
 
-    def gen_ham_arr(self, basis, doppler_shift):
-        raise NotImplementedError("Subclasses must implement gen_ham_arr")
+    def gen_ham_list(self, basis, doppler_shift):
+        raise NotImplementedError("Subclasses must implement gen_ham_list")
 
 
 class UpPulse(Pulse):
@@ -139,7 +139,7 @@ class DownPulse(Pulse):
     def gen_ham_list(self, basis, doppler_shift):
         """
         Generates list of Hamiltonians at each time interval of the pulse
-        H = H0 + Hplus
+        H = H0 + Hminus
         Chosen to be a list of ndarrays instead of a singular ndarray to make concatenation easier with other pulses.
         
         Args:
@@ -169,12 +169,12 @@ class FreeEvolution(Pulse):
 
     Inherits from Pulse
 
-    The phase, rabi_freq and laser_det attributes are arrays of values, where that value is held constant
+    The laser_det attribute is an array of values, where that value is held constant
     for a certain time interval. The time interval is equal for each value in the array and is determined from
-    the duration divided by the total number of values. The phase, rabi_freq and laser_det as functions of time
+    the duration divided by the total number of values. The laser_det as a function of time
     will look like steps, since the way things are simulated the Hamiltonian needs to be constant at each discrete 
     time interval.
-    If you have a phase profile that you want to input that has one phase value per each time value (instead of per time interval) 
+    If you have a profile that you want to input that has one value per each time value (instead of per time interval) 
     you will need to remove either the first or last data point depending on how the pulse is defined.
 
     Attributes:
@@ -190,8 +190,8 @@ class FreeEvolution(Pulse):
 
     def gen_ham_list(self, basis, doppler_shift):
         """
-        Generates list of Hamiltonians at each time interval of the pulse
-        H = H0 + Hplus
+        Generates list of Hamiltonians at each time interval of the free evolution period
+        H = H0
         Chosen to be a list of ndarrays instead of a singular ndarray to make concatenation easier with other pulses.
         
         Args:
@@ -215,17 +215,20 @@ class PulseSequence:
     """
     Represents an ordered sequence of Pulse objects.
 
-    times will have a length that is 1 longer than hams. Since the discrete hamiltonians segments are defined
-    as being constant during each timer interval, instead of being defined at each time step.
+    times will have a length that is 1 longer than hams. Since the discrete Hamiltonian segments are defined
+    as being constant during each time interval, instead of being defined at each time step.
 
     Note: times and hams are unpopulated until gen_hams is run.
 
     Attributes:
         pulses (list[Pulse]): Ordered list of Pulse objects.
-        times (nump.ndarray): A 1D array of each time step (in seconds) for the whole pulse sequence.
+        times (np.ndarray): A 1D array of each time step (in seconds) for the whole pulse sequence.
+        rabis (np.ndarray): 1D array of Rabi frequencies concatenated across all pulses.
+        detunings (np.ndarray): 1D array of laser detunings concatenated across all pulses.
+        phases (np.ndarray): 1D array of laser phases concatenated across all pulses.
         hams (np.ndarray): A 3D array of the Hamiltonians at each time interval for the whole pulse sequence.
+        pulse_types (np.ndarray): 1D array of integer identifiers representing the pulse type for each step.
     """
-
     pulses: list
     times: np.ndarray
     rabis: np.ndarray
@@ -290,11 +293,7 @@ class PulseSequence:
         Args:
             basis (numpy.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
             doppler_shift (float): Doppler shift detuning in 2pi*Hz.
-
-        Returns:
-            None: Updates times and hams attributes (I may get rid of these variables and change it to just return them).
         """
-
         times_list = [np.array([0])]
         hams_list = []
         for pulse in self.pulses:
@@ -305,6 +304,10 @@ class PulseSequence:
         self.hams = np.array(hams_list)    
 
     def build_seq(self):
+        """
+        Extracts and concatenates the detunings, phases, Rabi frequencies, types, and times 
+        across all constituent pulses, storing them as class attributes.
+        """
         detunings_list, phases_list, rabis_list, types_list = [], [], [], []
         
         for pulse in self.pulses:
