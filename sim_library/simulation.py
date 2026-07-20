@@ -2,7 +2,7 @@ import numpy as np
 from scipy.constants import hbar
 from sim_library.constants import k_eff, kb, m, dR, pi
 from sim_library.sequences import PulseSequence, RR3_gate
-from sim_library.hams import time_evolve, gen_ham_free, gen_ham_minus, gen_ham_plus
+from sim_library.time_evolution import time_evolve, gen_ham_free, gen_ham_minus, gen_ham_plus, evolve_uppulse, evolve_downpulse, evolve_free
 from sim_library.data_io import save_p_dists
 from datetime import date
 from pathlib import Path
@@ -168,6 +168,7 @@ def simulate_pulses_p_dist_custom(pulse_seq: PulseSequence, init_mom_dist: np.nd
 def simulate_pulses_single_atom(pulse_seq: PulseSequence, basis: np.ndarray, initial_state: np.ndarray, d_shift: float = 0) -> tuple[np.ndarray, np.ndarray]:
     """
     Simulates a given sequence of pulses on the given initial state for a single atom.
+    Time evolution is calculated using numerical solutions of TDSE.
     By default the atom has no doppler shift but this can be changed with d_shift.
     The output is the state vector as a function of time.
 
@@ -205,6 +206,61 @@ def simulate_pulses_single_atom(pulse_seq: PulseSequence, basis: np.ndarray, ini
 
     for t in range(1,n_steps):
         state_vec = time_evolve(state_vec= state_vec, dt = times[t]-times[t-1], H = hams[t-1]) # hams is one shorter than times
+        wave_func[:,t] = state_vec
+
+    return np.transpose(wave_func), times
+
+def simulate_pulses_single_atom_analyt(pulse_seq: PulseSequence, basis: np.ndarray, initial_state: np.ndarray, d_shift: float = 0) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Simulates a given sequence of pulses on the given initial state for a single atom.
+    Time evolution is calculated using analytical expressions of time-dependent state amplitudes.
+    By default the atom has no doppler shift but this can be changed with d_shift.
+    The output is the state vector as a function of time.
+
+    Args:
+        pulse_seq (PulseSequence): The ordered sequence of pulses to be applied to each atom.
+        basis (np.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
+        initial_state (np.ndarray): The initial momentum state vector of a single atom (elements are np.complex128). 
+                                       
+    Returns:
+        wave_func (np.ndarray): A 2D array of the wave function at every time step.
+        times (np.ndarray): A 1D array of each time step (in seconds).
+
+    Raises:
+        TypeError: If initial_state is not a complex np.ndarray.
+        ValueError: If list of pulses is empty.
+    """
+    # Checks the initial state vector is a complex np.ndarray
+    if not np.issubdtype(initial_state.dtype, np.complexfloating):
+        raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
+
+    if len(pulse_seq.pulses) <= 0:
+        raise ValueError("List of pulses is empty")
+    
+    pulse_seq.build_seq()
+    times = pulse_seq.times
+    rabis = pulse_seq.rabis
+    detunings = pulse_seq.detunings
+    phases = pulse_seq.phases
+    pulse_types = pulse_seq.pulse_types
+
+    n_steps = len(times)
+
+    state_vec = initial_state
+
+    wave_func = np.zeros((len(basis), n_steps), dtype=np.complex128)
+
+    wave_func[:,0] = state_vec
+
+    for t in range(1,n_steps):
+        match pulse_types[t-1]:
+            case 0:
+                state_vec = evolve_uppulse(dt=times[t]-times[t-1], state_vec=state_vec, omega_R_plus=rabis[t-1], phi_L=phases[t-1], delta_D=d_shift, delta_R=dR, delta_L=detunings[t-1], basis=basis)
+            case 1:
+                state_vec = evolve_downpulse(dt=times[t]-times[t-1], state_vec=state_vec, omega_R_minus=rabis[t-1], phi_L=phases[t-1], delta_D=d_shift, delta_R=dR, delta_L=detunings[t-1], basis=basis)
+            case 2:
+                state_vec = evolve_free(dt=times[t]-times[t-1], state_vec=state_vec, delta_D=d_shift, delta_R=dR, delta_L=detunings[t-1], basis=basis)
+    
         wave_func[:,t] = state_vec
 
     return np.transpose(wave_func), times
