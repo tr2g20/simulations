@@ -184,6 +184,7 @@ def time_evolve_old(dt, H):
     time_evol_mat = expm(-1j*dt*H)
     return time_evol_mat    
 
+@njit
 def evolve_free(dt: float, state_vec: np.ndarray, delta_D: float, delta_R: float, delta_L: float, basis: np.ndarray):
     """
     Evolves wavefunction over a time interval dt using analytical expressions for time-dependent state amplitudes during free evolution. 
@@ -208,6 +209,7 @@ def evolve_free(dt: float, state_vec: np.ndarray, delta_D: float, delta_R: float
             new_state_vec[i] = state_vec[i]*np.exp(1j*(n*(delta_D+(n*delta_R))-delta_L)*dt)
     return new_state_vec
 
+@njit
 def evolve_uppulse(dt: float, state_vec: np.ndarray, omega_R_plus: float, phi_L: float, delta_D: float, delta_R: float, delta_L: float, basis: np.ndarray):
     """
     Evolves wavefunction over a time interval dt using analytical expressions for time-dependent state amplitudes during an upwards pulse. 
@@ -248,6 +250,7 @@ def evolve_uppulse(dt: float, state_vec: np.ndarray, omega_R_plus: float, phi_L:
 
     return new_state_vec
 
+@njit
 def evolve_downpulse(dt: float, state_vec: np.ndarray, omega_R_minus: float, phi_L: float, delta_D: float, delta_R: float, delta_L: float, basis: np.ndarray):
     """
     Evolves wavefunction over a time interval dt using analytical expressions for time-dependent state amplitudes during an upwards pulse. 

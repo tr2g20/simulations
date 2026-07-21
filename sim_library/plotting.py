@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
+import matplotlib.colors as mcolors
 from matplotlib.animation import FuncAnimation
 from qutip import Bloch, Qobj, sigmax, sigmay, sigmaz, expect
 from tabulate import tabulate
@@ -211,6 +212,57 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
     if show:
         b.show()  
           
+    return b
+
+def plot_bloch_multi(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\rangle$', '$\\left| 1\\right\\rangle$'], colours: list = None, show: bool = True):
+    """
+    Plots multiple state trajectories as continuous lines on a single Bloch sphere.
+    Each trajectory is assigned a distinct colour, with markers placed at the start 
+    (circle) and end (square) of each trajectory.
+
+    Args:
+        wave_func (np.ndarray): A NumPy array of shape (m, N, 2), where m is the number of 
+            trajectories, N is the number of time steps, and the last dimension contains the 
+            complex amplitudes of each qubit state.
+        labels (list[str]): Labels for north and south poles of Bloch sphere.
+            Default is |0> and |1>.
+        colours (list, optional): List of m colours (any matplotlib-recognised colour spec, 
+            e.g. 'tab:blue', '#ff0000') used to distinguish trajectories. Defaults to matplotlib's 
+            standard colour cycle, repeating if m exceeds its length.
+        show (bool): If true runs fig.show() command for Bloch object.
+
+    Raises:
+        ValueError: If wave_func is not 3D or the last dimension is not size 2.
+    """
+    if wave_func.ndim != 3 or wave_func.shape[-1] != 2:
+        raise ValueError(f"wave_func must have shape (m, N, 2), got {wave_func.shape}")
+
+    m, N, _ = wave_func.shape
+
+    if colours is None:
+        cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        colours = [cycle[i % len(cycle)] for i in range(m)]
+
+    sx, sy, sz = sigmax(), sigmay(), sigmaz()
+
+    b = Bloch()
+
+    for k in range(m):
+        states = [Qobj(wave_func[k, i, :]) for i in range(N)]
+        x = [expect(sx, state) for state in states]
+        y = [expect(sy, state) for state in states]
+        z = [expect(sz, state) for state in states]
+
+        b.add_points([x, y, z], meth='l', colors=[colours[k]])
+
+        b.add_points([[x[0]], [y[0]], [z[0]]], meth='s', colors=[colours[k]])   # start: circle
+        b.add_states(state=states[-1], colors=[colours[k]])                     # end: arrow-style marker
+
+    b.zlabel = labels
+
+    if show:
+        b.show()
+
     return b
 
 def display_table(basis: np.ndarray, wave_func: np.ndarray):
