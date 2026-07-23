@@ -456,7 +456,7 @@ def gen_MDFE_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: 
 
     up_pulse = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
     down_pulse = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
-    freevolve = FreeEvolution(laser_det=np.full(time_steps, dR), duration=free_time/4)
+    freevolve = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=free_time/4)
 
     mom_dependent_free_evolution.add_pulses([freevolve, up_pulse, freevolve, up_pulse, freevolve, down_pulse, freevolve, down_pulse])
     return mom_dependent_free_evolution
@@ -479,7 +479,7 @@ def gen_MDFEup_seq(free_time: float, rabi_freq: float, time_steps: int, detuning
     rabi_time = 2*pi/rabi_freq
 
     up_pulse = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
-    freevolve = FreeEvolution(laser_det=np.full(time_steps, dR), duration=free_time/4)
+    freevolve = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=free_time/4)
 
     mom_dependent_free_evolution.add_pulses([freevolve, up_pulse, freevolve, up_pulse])
     return mom_dependent_free_evolution
@@ -502,12 +502,12 @@ def gen_MDFEdown_seq(free_time: float, rabi_freq: float, time_steps: int, detuni
     rabi_time = 2*pi/rabi_freq
 
     down_pulse = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
-    freevolve = FreeEvolution(laser_det=np.full(time_steps, dR), duration=free_time/4)
+    freevolve = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=free_time/4)
 
     mom_dependent_free_evolution.add_pulses([freevolve, down_pulse, freevolve, down_pulse])
     return mom_dependent_free_evolution
 
-def not0_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def not0_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     """
     Generates a pulse sequence for a NOT gate acting on first qubit
 
@@ -525,8 +525,8 @@ def not0_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
 
     not_gate = PulseSequence()
 
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=free_time/4) #pi/2
-    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2) #up pi pulse, phase = 0
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=free_time/4) #pi/2
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2) #up pi pulse, phase = 0
 
     not_gate.add_pulses([freevolve_1, 
                         pulse_1, 
@@ -534,17 +534,17 @@ def not0_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
     
     return not_gate
 
-def exchange10_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def exchange10_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
     exchange10 = PulseSequence()
 
-    pulse_1 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #down pi/2 pulse, phase = pi/2
+    pulse_1 = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #down pi/2 pulse, phase = pi/2
 
-    MDFE_1 = gen_MDFEup_seq(free_time=pi/(4*dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/4
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=5*free_time/8) #5pi/4 
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=free_time/2) #pi
+    MDFE_1 = gen_MDFEup_seq(free_time=pi/(4*dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) # pi/4
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=5*free_time/8) #5pi/4 
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=free_time/2) #pi
 
     exchange10.add_pulses([pulse_1,
                     freevolve_1,
@@ -554,17 +554,17 @@ def exchange10_gate(rabi_freq: float, time_steps: int, detuning: float = omega_e
     
     return exchange10
 
-def anti_CNOT10_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def anti_CNOT10_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
     antiCNOT = PulseSequence()
 
-    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, pi/2), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #up pi/2 pulse, phase = pi/2
-    pulse_2 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time) #down 2pi pulse, phase = 0
-    MDFE_1 = gen_MDFE_seq(free_time=pi/(4*dR), rabi_freq=rabi_freq, time_steps=time_steps) #pi/4
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=7*free_time/8) #7pi/4
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=free_time/2) #pi
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, pi/2), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #up pi/2 pulse, phase = pi/2
+    pulse_2 = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time) #down 2pi pulse, phase = 0
+    MDFE_1 = gen_MDFE_seq(free_time=pi/(4*dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) #pi/4
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=7*free_time/8) #7pi/4
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=free_time/2) #pi
 
 
     antiCNOT.add_pulses([pulse_1,
@@ -576,16 +576,16 @@ def anti_CNOT10_gate(rabi_freq: float, time_steps: int, detuning: float = omega_
     
     return antiCNOT
 
-def swap23_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def swap23_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
     swap23 = PulseSequence()
 
-    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #up pi/2 pulse, phase = pi/2
-    MDFE_1 = gen_MDFEdown_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps) #pi/8
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=7*free_time/16) #7pi/8
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=3*free_time/16) #3pi/8
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #up pi/2 pulse, phase = pi/2
+    MDFE_1 = gen_MDFEdown_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) #pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=7*free_time/16) #7pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=3*free_time/16) #3pi/8
 
     swap23.add_pulses([pulse_1,
                         freevolve_1,
@@ -601,16 +601,16 @@ def swap23_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2)
     
     return swap23
 
-def swap34_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def swap34_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
     swap34 = PulseSequence()
 
-    pulse_1 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #down pi/2 pulse, phase = pi/2
-    MDFE_1 = gen_MDFEup_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps) #pi/8
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=5*free_time/16) #5pi/8
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=free_time/16) #pi/8 
+    pulse_1 = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #down pi/2 pulse, phase = pi/2
+    MDFE_1 = gen_MDFEup_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) #pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=5*free_time/16) #5pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=free_time/16) #pi/8 
 
     swap34.add_pulses([pulse_1,
                         freevolve_1,
@@ -627,15 +627,15 @@ def swap34_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2)
     return swap34
 
 
-def ramsey_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def ramsey_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning 
 
     ramsey = PulseSequence()
 
-    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #up pi/2 pulse, phase = pi/2
-    MDFE_1 = gen_MDFEdown_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps) #pi/8
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=3*free_time/16) #3pi/8
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) #up pi/2 pulse, phase = pi/2
+    MDFE_1 = gen_MDFEdown_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) #pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=3*free_time/16) #3pi/8
 
     ramsey.add_pulses([pulse_1,
                     freevolve_1,
@@ -645,14 +645,14 @@ def ramsey_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2)
     
     return ramsey
 
-def swap45_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def swap45_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     free_time = 2*pi/detuning 
 
     swap45 = PulseSequence()
 
-    ramsey = ramsey_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    MDFE_1 = gen_MDFEdown_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps) #pi/8
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=15*free_time/16) #15pi/8
+    ramsey = ramsey_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    MDFE_1 = gen_MDFEdown_seq(free_time=pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) #pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=15*free_time/16) #15pi/8
 
     swap45.add_pulses([ramsey,
                     freevolve_1,
@@ -662,7 +662,7 @@ def swap45_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2)
     
     return swap45
 
-def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     """
     EX21 with phase correction as defined in 2003 paper
     (not sure phase corrections actually work though)
@@ -672,18 +672,18 @@ def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = ome
 
     exchange21 = PulseSequence()
 
-    not_gate = not0_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    antiCNOT = anti_CNOT10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    swap23 = swap23_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    swap34 = swap34_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    swap45 = swap45_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
+    not_gate = not0_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    antiCNOT = anti_CNOT10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    swap23 = swap23_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    swap34 = swap34_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    swap45 = swap45_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
 
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=5*free_time/16) #5pi/8
-    MDFE_1 = gen_MDFE_seq(free_time=3*pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps) #3pi/8
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=free_time/2) #pi
-    freevolve_3 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=13*free_time/16) #13pi/8
-    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time) #up 2pi pulse, phase = 0
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=5*free_time/16) #5pi/8
+    MDFE_1 = gen_MDFE_seq(free_time=3*pi/(8*dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) #3pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=free_time/2) #pi
+    freevolve_3 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=13*free_time/16) #13pi/8
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time) #up 2pi pulse, phase = 0
 
     exchange21.add_pulses([
                         freevolve_1,
@@ -707,13 +707,13 @@ def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = ome
                         pulse_1])
     return exchange21
 
-def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
 
     exchange21 = PulseSequence()
 
-    swap23 = swap23_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    swap34 = swap34_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    swap45 = swap45_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
+    swap23 = swap23_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    swap34 = swap34_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    swap45 = swap45_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
 
     exchange21.add_pulses([
                         swap34,
@@ -723,33 +723,33 @@ def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = omega_e
                         ])
     return exchange21
     
-def RR3long_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def RR3long_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     """
     RR3 with phase corrections as defined in 2003 paper
     """
     RR3 = PulseSequence()
 
-    ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    ex21 = exchange21long_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
+    ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    ex21 = exchange21long_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
 
     RR3.add_pulses([ex10, ex21])
 
     return RR3
 
-def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = omega_eg/2):
+def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     """
     Simplified 35 pulse sequence no phase correction
     """
     RR3 = PulseSequence()
 
-    ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
-    ex21 = exchange21_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning)
+    ex10 = exchange10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
+    ex21 = exchange21_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree)
 
     RR3.add_pulses([ex10, ex21])
 
     return RR3
 
-def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = omega_eg/2):
+def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
     """
     RR3 sequence using adjusted MDFE durations optimised for 500kHz Rabi frequency.
     """
@@ -758,10 +758,10 @@ def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = omega_eg/2):
     free_time = 2*pi/detuning 
 
     ex10 = PulseSequence()
-    pulse_1 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # down pi/2, phi=0
-    MDFE_1 = gen_MDFEup_seq(free_time=0.12879*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/4
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=5*free_time/8) # 5pi/4 
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=free_time/2) # pi
+    pulse_1 = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # down pi/2, phi=0
+    MDFE_1 = gen_MDFEup_seq(free_time=0.12879*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) # pi/4
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=5*free_time/8) # 5pi/4 
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=free_time/2) # pi
     ex10.add_pulses([pulse_1,
                     freevolve_1,
                     MDFE_1,
@@ -769,10 +769,10 @@ def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = omega_eg/2):
                     freevolve_2])
 
     swap23 = PulseSequence()
-    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # up pi/2, phi=0
-    MDFE_1 = gen_MDFEdown_seq(free_time=0.0054805*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/8
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=7*free_time/16) # 7pi/8
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=3*free_time/16) # 3pi/8
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # up pi/2, phi=0
+    MDFE_1 = gen_MDFEdown_seq(free_time=0.0054805*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) # pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=7*free_time/16) # 7pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=3*free_time/16) # 3pi/8
     swap23.add_pulses([pulse_1,
                         freevolve_1,
                         MDFE_1,
@@ -786,10 +786,10 @@ def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = omega_eg/2):
                         ])
 
     swap34 = PulseSequence()
-    pulse_1 = DownPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # down pi/2, phi=0
-    MDFE_1 = gen_MDFEup_seq(free_time=0.0037871*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) # pi/8
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=5*free_time/16) # 5pi/8
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuning)), duration=free_time/16) # pi/8 
+    pulse_1 = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # down pi/2, phi=0
+    MDFE_1 = gen_MDFEup_seq(free_time=0.0037871*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) # pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=5*free_time/16) # 5pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, +detuningfree)), duration=free_time/16) # pi/8 
     swap34.add_pulses([pulse_1,
                         freevolve_1,
                         MDFE_1,
@@ -803,10 +803,10 @@ def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = omega_eg/2):
                         ])
    
     swap45 = PulseSequence()
-    pulse_1 = UpPulse(laser_det=np.full(time_steps, dR), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # up pi/2, phi=0
-    MDFE_1 = gen_MDFEdown_seq(free_time=0.0054805*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps) #pi/8
-    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=3*free_time/16) #3pi/8
-    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuning)), duration=15*free_time/16) #15pi/8
+    pulse_1 = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4) # up pi/2, phi=0
+    MDFE_1 = gen_MDFEdown_seq(free_time=0.0054805*(pi/dR), rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning) #pi/8
+    freevolve_1 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=3*free_time/16) #3pi/8
+    freevolve_2 = FreeEvolution(laser_det=(np.full(time_steps, -detuningfree)), duration=15*free_time/16) #15pi/8
     swap45.add_pulses([pulse_1,
                         freevolve_1,
                         MDFE_1,
