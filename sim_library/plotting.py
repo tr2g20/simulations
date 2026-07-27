@@ -166,7 +166,7 @@ def save_gif_interp(filename: str, mom_vals: np.ndarray, fracs: np.ndarray, n_bi
     ani = FuncAnimation(fig, update, frames=frame_indices, interval= frame_interval)
     ani.save(filename, writer='pillow')
 
-def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\rangle$', '$\\left| 1\\right\\rangle$'], show=True):
+def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\rangle$', '$\\left| 1\\right\\rangle$'], show=True, fig=None, ax=None):
     """
     Plots trajectory of single qubit state on the Bloch sphere.
     Colour-coded from blue to red (inital to final state)
@@ -182,7 +182,10 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
             of the qubit state.
         labels (list[str]): Labels for north and south poles of Bloch sphere.
             Default is |0> and |1>.
-        show (bool): If true runs fig.show() command for Bloch object.
+        show (bool): If true, renders the sphere (via b.render(), not b.show()).
+        fig, ax: Optional existing figure/3D axes to draw on. If not given, a new
+            figure+axes is created and owned by this function so the widget
+            backend can display it interactively.
     """
     states = []
     for i in range(len(wave_func)):
@@ -198,10 +201,14 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
     steps = len(states)
     r = np.linspace(0, 1, steps)
     g = np.zeros(steps)
-    b = np.linspace(1, 0, steps)
-    colours = np.column_stack((r, g, b))
+    blue = np.linspace(1, 0, steps)
+    colours = np.column_stack((r, g, blue))
 
-    b = Bloch()
+    if fig is None or ax is None:
+        fig = plt.figure(figsize=[7, 7])
+        ax = fig.add_subplot(projection="3d")
+
+    b = Bloch(fig=fig, axes=ax)
     b.add_points([x, y, z], meth='m', colors=colours) 
 
     b.add_states(state=states[0], colors=['b'])
@@ -210,11 +217,11 @@ def plot_bloch(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\r
     b.zlabel = labels
 
     if show:
-        b.show()  
-          
-    return b
+        b.render()
 
-def plot_bloch_multi(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\rangle$', '$\\left| 1\\right\\rangle$'], colours: list = None, show: bool = True):
+    return b, fig
+
+def plot_bloch_multi(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\right\\rangle$', '$\\left| 1\\right\\rangle$'], colours: list = None, show: bool = True, fig=None, ax=None):
     """
     Plots multiple state trajectories as continuous lines on a single Bloch sphere.
     Each trajectory is assigned a distinct colour, with markers placed at the start 
@@ -229,7 +236,10 @@ def plot_bloch_multi(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\ri
         colours (list, optional): List of m colours (any matplotlib-recognised colour spec, 
             e.g. 'tab:blue', '#ff0000') used to distinguish trajectories. Defaults to matplotlib's 
             standard colour cycle, repeating if m exceeds its length.
-        show (bool): If true runs fig.show() command for Bloch object.
+        show (bool): If true, renders the sphere (via b.render(), not b.show()).
+        fig, ax: Optional existing figure/3D axes to draw on. If not given, a new
+            figure+axes is created and owned by this function so the widget
+            backend can display it interactively.
 
     Raises:
         ValueError: If wave_func is not 3D or the last dimension is not size 2.
@@ -245,7 +255,11 @@ def plot_bloch_multi(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\ri
 
     sx, sy, sz = sigmax(), sigmay(), sigmaz()
 
-    b = Bloch()
+    if fig is None or ax is None:
+        fig = plt.figure(figsize=(7,7))
+        ax = fig.add_subplot(projection="3d")
+
+    b = Bloch(fig=fig, axes=ax)
 
     for k in range(m):
         states = [Qobj(wave_func[k, i, :]) for i in range(N)]
@@ -261,9 +275,9 @@ def plot_bloch_multi(wave_func: np.ndarray, labels: list[str] = ['$\\left| 0\\ri
     b.zlabel = labels
 
     if show:
-        b.show()
+        b.render()
 
-    return b
+    return b, fig
 
 def display_table(basis: np.ndarray, wave_func: np.ndarray):
     """
