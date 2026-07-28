@@ -437,7 +437,7 @@ def gen_offresonant_pm_seq_fast(no_pulses: int, rabi_freq: float, n_steps: int, 
     pulse_seq_fast = gen_offresonant_pm_seq(no_pulses=no_pulses, rabi_freq=rabi_freq, n_steps=1, p_start=p_start, dir=dir)
     return pulse_seq, pulse_seq_fast
 
-def gen_MDFE_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: float = dR):
+def gen_MDFE_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: float = 0):
     """
     Generates a Momentum-Dependent Free Evolution (MDFE) pulse sequence of rectangular pulses.
 
@@ -445,7 +445,7 @@ def gen_MDFE_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: 
         free_time (float): Total duration of the free evolution.
         rabi_freq (float): The Rabi frequency in 2*pi Hz.
         time_steps (int): Number of discrete time steps per pulse or freevolution.
-        detuning (float): Laser detuning of up and down pulses. Defaults to global `dR`.
+        detuning (float): Laser detuning of up and down pulses. Defaults to global `0`.
 
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
@@ -461,7 +461,7 @@ def gen_MDFE_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: 
     mom_dependent_free_evolution.add_pulses([freevolve, up_pulse, freevolve, up_pulse, freevolve, down_pulse, freevolve, down_pulse])
     return mom_dependent_free_evolution
 
-def gen_MDFEup_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: float = dR):
+def gen_MDFEup_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: float = 0):
     """
     Generates a Momentum-Dependent Free Evolution (MDFE) pulse sequence of rectangular pulses.
 
@@ -469,7 +469,7 @@ def gen_MDFEup_seq(free_time: float, rabi_freq: float, time_steps: int, detuning
         free_time (float): Total duration of the free evolution.
         rabi_freq (float): The Rabi frequency in 2*pi Hz.
         time_steps (int): Number of discrete time steps per pulse or freevolution.
-        detuning (float): Laser detuning of up and down pulses. Defaults to global `dR`.
+        detuning (float): Laser detuning of up and down pulses. Defaults to global `0`.
 
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
@@ -484,7 +484,7 @@ def gen_MDFEup_seq(free_time: float, rabi_freq: float, time_steps: int, detuning
     mom_dependent_free_evolution.add_pulses([freevolve, up_pulse, freevolve, up_pulse])
     return mom_dependent_free_evolution
 
-def gen_MDFEdown_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: float = dR):
+def gen_MDFEdown_seq(free_time: float, rabi_freq: float, time_steps: int, detuning: float = 0):
     """
     Generates a Momentum-Dependent Free Evolution (MDFE) pulse sequence of rectangular pulses.
 
@@ -492,7 +492,7 @@ def gen_MDFEdown_seq(free_time: float, rabi_freq: float, time_steps: int, detuni
         free_time (float): Total duration of the free evolution.
         rabi_freq (float): The Rabi frequency in 2*pi Hz.
         time_steps (int): Number of discrete time steps per pulse or freevolution.
-        detuning (float): Laser detuning of up and down pulses. Defaults to global `dR`.
+        detuning (float): Laser detuning of up and down pulses. Defaults to global `0`.
 
     Returns:
         PulseSequence: PulseSequence object containing the MDFE sequence.
@@ -507,7 +507,7 @@ def gen_MDFEdown_seq(free_time: float, rabi_freq: float, time_steps: int, detuni
     mom_dependent_free_evolution.add_pulses([freevolve, down_pulse, freevolve, down_pulse])
     return mom_dependent_free_evolution
 
-def not0_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def not0_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     """
     Generates a pulse sequence for a NOT gate acting on first qubit
 
@@ -534,7 +534,7 @@ def not0_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningf
     
     return not_gate
 
-def exchange10_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def exchange10_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
@@ -554,7 +554,7 @@ def exchange10_gate(rabi_freq: float, time_steps: int, detuning: float = dR, det
     
     return exchange10
 
-def anti_CNOT10_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def anti_CNOT10_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
@@ -576,7 +576,7 @@ def anti_CNOT10_gate(rabi_freq: float, time_steps: int, detuning: float = dR, de
     
     return antiCNOT
 
-def swap23_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def swap23_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
@@ -601,7 +601,7 @@ def swap23_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detunin
     
     return swap23
 
-def swap34_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def swap34_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning
 
@@ -627,7 +627,7 @@ def swap34_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detunin
     return swap34
 
 
-def ramsey_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def ramsey_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     rabi_time = 2*pi/rabi_freq
     free_time = 2*pi/detuning 
 
@@ -645,7 +645,7 @@ def ramsey_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detunin
     
     return ramsey
 
-def swap45_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def swap45_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     free_time = 2*pi/detuning 
 
     swap45 = PulseSequence()
@@ -662,7 +662,7 @@ def swap45_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detunin
     
     return swap45
 
-def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     """
     EX21 with phase correction as defined in 2003 paper
     (not sure phase corrections actually work though)
@@ -707,7 +707,7 @@ def exchange21long_gate(rabi_freq: float, time_steps: int, detuning: float = dR,
                         pulse_1])
     return exchange21
 
-def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
 
     exchange21 = PulseSequence()
 
@@ -723,7 +723,7 @@ def exchange21_gate(rabi_freq: float, time_steps: int, detuning: float = dR, det
                         ])
     return exchange21
     
-def RR3long_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def RR3long_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     """
     RR3 with phase corrections as defined in 2003 paper
     """
@@ -736,7 +736,7 @@ def RR3long_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuni
 
     return RR3
 
-def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     """
     Simplified 35 pulse sequence no phase correction
     """
@@ -749,7 +749,7 @@ def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = dR, detuningfr
 
     return RR3
 
-def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = dR, detuningfree: float = omega_eg/2):
+def RR3_adjMDFE_500kHz(time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2):
     """
     RR3 sequence using adjusted MDFE durations optimised for 500kHz Rabi frequency.
     """
