@@ -361,7 +361,7 @@ def check_duration(duration, name, phase, rabi_freq):
         f"rabi_freq = {rabi_freq/(2*pi):.1f} Hz\n"
         )
 
-def Gplus_gate(phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, bs_corr: bool = True, pi_corr: bool = True):
+def Gplus_gate(phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
     """
     Generates PulseSequence object for G_+ gate with rectangular pulses.
 
@@ -406,11 +406,16 @@ def Gplus_gate(phase: float, rabi_freq: float, time_steps: int, detuning: float 
     freevolve1 = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur/8 - (pi_adj/4) - (bs_adj))
     freevolve2 = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur/4 - (pi_adj/2))
 
-    Gplus.add_pulses([freevolve1, down_pulse, freevolve2, down_pulse, freevolve1])
+    freevolveFD = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur - (2*bs_adj))
+
+    if not freq_dep:
+        Gplus.add_pulses([freevolve1, down_pulse, freevolve2, down_pulse, freevolve1])
+    else:
+        Gplus.add_pulses([freevolveFD])
 
     return Gplus
 
-def Gminus_gate(phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, bs_corr: bool = True, pi_corr: bool = True):
+def Gminus_gate(phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
     """
     Generates PulseSequence object for G_- gate with rectangular pulses.
 
@@ -439,63 +444,64 @@ def Gminus_gate(phase: float, rabi_freq: float, time_steps: int, detuning: float
     else:
         pi_adj = 0
 
-    # if bs_corr:
-    #     if G_dur/8 - (pi_adj/4) - (bs_adj) < 0:
-    #         twopi_multiples = np.abs(( G_dur/8 - (pi_adj/4) - (bs_adj) ) / (pi/(4*dR)))
-    #         G_dur += 8*np.ceil(twopi_multiples)*(2*pi/dR)
-    # if (not bs_corr) and (pi_corr):
-    #     if G_dur/4 - (pi_adj/2) < 0:
-    #         twopi_multiples = np.abs(( G_dur/4 - (pi_adj/2) ) / (pi/(2*dR)))
-    #         G_dur += 8*np.ceil(twopi_multiples)*(2*pi/dR)
+    if not freq_dep:
+        # if bs_corr:
+        #     if G_dur/8 - (pi_adj/4) - (bs_adj) < 0:
+        #         twopi_multiples = np.abs(( G_dur/8 - (pi_adj/4) - (bs_adj) ) / (pi/(4*dR)))
+        #         G_dur += 8*np.ceil(twopi_multiples)*(2*pi/dR)
+        # if (not bs_corr) and (pi_corr):
+        #     if G_dur/4 - (pi_adj/2) < 0:
+        #         twopi_multiples = np.abs(( G_dur/4 - (pi_adj/2) ) / (pi/(2*dR)))
+        #         G_dur += 8*np.ceil(twopi_multiples)*(2*pi/dR)
+    
+        # check_duration(G_dur/8 - (pi_adj/4) - (bs_adj), "Gplus outer free evolution", phase, rabi_freq)
+        # check_duration(G_dur/4 - (pi_adj/2), "Gplus middle free evolution", phase, rabi_freq)
 
-    # check_duration(G_dur/8 - (pi_adj/4) - (bs_adj), "Gplus outer free evolution", phase, rabi_freq)
-    # check_duration(G_dur/4 - (pi_adj/2), "Gplus middle free evolution", phase, rabi_freq)
-
-    up_pulse = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
-    freevolve1 = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur/8 - (pi_adj/4) - (bs_adj))
-    freevolve2 = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur/4 - (pi_adj/2))
-
-    Gminus.add_pulses([freevolve1, up_pulse, freevolve2, up_pulse, freevolve1])
+        up_pulse = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/2)
+        freevolve1 = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur/8 - (pi_adj/4) - (bs_adj))
+        freevolve2 = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur/4 - (pi_adj/2))
+        Gminus.add_pulses([freevolve1, up_pulse, freevolve2, up_pulse, freevolve1])
+    else:
+        freevolveFD = FreeEvolution(laser_det=np.full(time_steps, detuning), duration=G_dur - (2*bs_adj))
+        Gminus.add_pulses([freevolveFD])
     return Gminus
 
-def Rplus_gate(F_phase: float, G_phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def Rplus_gate(F_phase: float, G_phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     Rplus = PulseSequence()
 
     rabi_time = 2*pi/rabi_freq
-    free_time = 2*pi/(np.abs(dR-detuningfree))
 
     up_pulse = UpPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4)
     Fplus = Fplus_gate(phase=F_phase, time_steps=time_steps, detuningfree=detuningfree)
-    Gplus = Gplus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=bs_corr, pi_corr=pi_corr)
+    Gplus = Gplus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
 
     Rplus.add_pulses([up_pulse, Fplus, Gplus, up_pulse])
     return Rplus
 
-def Rminus_gate(F_phase: float, G_phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def Rminus_gate(F_phase: float, G_phase: float, rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     Rminus = PulseSequence()
 
     rabi_time = 2*pi/rabi_freq
-    free_time = 2*pi/(np.abs(dR-detuningfree))
 
     down_pulse = DownPulse(laser_det=np.full(time_steps, detuning), phase=np.full(time_steps, 0), rabi_freq=np.full(time_steps, rabi_freq), duration=rabi_time/4)
     Fminus = Fminus_gate(phase=F_phase, time_steps=time_steps, detuningfree=detuningfree)
-    Gminus = Gminus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=bs_corr, pi_corr=pi_corr)
+    Gminus = Gminus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
 
     Rminus.add_pulses([down_pulse, Fminus, Gminus, down_pulse])
     return Rminus
 
-def EX10_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def EX10_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     F_phase = 5*pi/4
     G_phase = pi/4
-
-    EX10 = Rminus_gate(F_phase=F_phase, G_phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
+    
+    EX10 = Rminus_gate(F_phase=F_phase, G_phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
 
     return EX10
 
-def SW23_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def SW23_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     Ramsey_F_phase = 7*pi/8
     Ramsey_G_phase = pi/8
@@ -504,15 +510,15 @@ def SW23_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfr
 
     SW23 = PulseSequence()
 
-    Rplus = Rplus_gate(F_phase=Ramsey_F_phase, G_phase=Ramsey_G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
+    Rplus = Rplus_gate(F_phase=Ramsey_F_phase, G_phase=Ramsey_G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
     Fplus = Fplus_gate(phase=F_phase, time_steps=time_steps, detuningfree=detuningfree)
-    Gplus = Gplus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=False, pi_corr=pi_corr)
+    Gplus = Gplus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=False, pi_corr=pi_corr, freq_dep=freq_dep)
 
     SW23.add_pulses([Rplus, Fplus, Gplus, Rplus])
 
     return SW23
 
-def SW34_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def SW34_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     Ramsey_F_phase = 5*pi/8
     Ramsey_G_phase = pi/8
@@ -521,15 +527,15 @@ def SW34_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfr
 
     SW34 = PulseSequence()
 
-    Rminus = Rminus_gate(F_phase=Ramsey_F_phase, G_phase=Ramsey_G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
+    Rminus = Rminus_gate(F_phase=Ramsey_F_phase, G_phase=Ramsey_G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
     Fminus = Fminus_gate(phase=F_phase, time_steps=time_steps, detuningfree=detuningfree)
-    Gminus = Gminus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=False, pi_corr=pi_corr)
+    Gminus = Gminus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=False, pi_corr=pi_corr, freq_dep=freq_dep)
 
     SW34.add_pulses([Rminus, Fminus, Gminus, Rminus])
 
     return SW34
 
-def SW45_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def SW45_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     Ramsey_F_phase = 3*pi/8
     Ramsey_G_phase = pi/8
@@ -538,32 +544,32 @@ def SW45_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfr
 
     SW45 = PulseSequence()
 
-    Rplus = Rplus_gate(F_phase=Ramsey_F_phase, G_phase=Ramsey_G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
+    Rplus = Rplus_gate(F_phase=Ramsey_F_phase, G_phase=Ramsey_G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
     Fplus = Fplus_gate(phase=F_phase, time_steps=time_steps, detuningfree=detuningfree)
-    Gplus = Gplus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=False, pi_corr=pi_corr)
+    Gplus = Gplus_gate(phase=G_phase, rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, bs_corr=False, pi_corr=pi_corr, freq_dep=freq_dep)
 
     SW45.add_pulses([Rplus, Fplus, Gplus, Rplus])
 
     return SW45
 
-def EX21_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def EX21_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     EX21 = PulseSequence()
 
-    SW23 = SW23_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
-    SW34 = SW34_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
-    SW45 = SW45_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
+    SW23 = SW23_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
+    SW34 = SW34_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
+    SW45 = SW45_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
 
     EX21.add_pulses([SW34, SW23, SW45, SW34])
 
     return EX21
 
-def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True):
+def RR3_gate(rabi_freq: float, time_steps: int, detuning: float = 0, detuningfree: float = omega_eg/2, bs_corr: bool = True, pi_corr: bool = True, freq_dep: bool = False):
 
     RR3 = PulseSequence()
 
-    EX10 = EX10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
-    EX21 = EX21_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr)
+    EX10 = EX10_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
+    EX21 = EX21_gate(rabi_freq=rabi_freq, time_steps=time_steps, detuning=detuning, detuningfree=detuningfree, bs_corr=bs_corr, pi_corr=pi_corr, freq_dep=freq_dep)
 
     RR3.add_pulses([EX10, EX21])
 
