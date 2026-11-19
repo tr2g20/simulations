@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.constants import pi
 from sim_library.constants import dR, omega_eg
-from sim_library.time_evolution import gen_ham_free, gen_ham_plus, gen_ham_minus
 
 class Pulse:
     """
@@ -16,9 +15,6 @@ class Pulse:
     def __init__(self, laser_det, duration):
         self.laser_det = laser_det
         self.duration = duration
-
-    def gen_ham_list(self, basis, doppler_shift):
-        raise NotImplementedError("Subclasses must implement gen_ham_list")
 
 
 class UpPulse(Pulse):
@@ -64,35 +60,6 @@ class UpPulse(Pulse):
         self.type = 'up'
         self.type_int = 0
 
-    def gen_ham_list(self, basis, doppler_shift):
-        """
-        Generates list of Hamiltonians at each time interval of the pulse
-        H = H0 + Hplus
-        Chosen to be a list of ndarrays instead of a singular ndarray to make concatenation easier with other pulses.
-        
-        Args:
-            basis (numpy.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
-            doppler_shift (float): Doppler shift detuning in 2pi*Hz.
-
-        Returns:
-            list[np.ndarray]: A list of 2D arrays where each element of the list is the pulse Hamiltonian at a specific time interval.
-        """
-        hams_list = []
-        for i in range(len(self.phase)):
-            H0 = gen_ham_free(basis = basis,
-                  delta_L = self.laser_det[i], 
-                  delta_D = doppler_shift,
-                  delta_R = dR,
-            )
-            Hplus = gen_ham_plus(basis = basis,
-                        phi_L = self.phase[i],
-                        omega_R_plus = self.rabi_freq[i],
-                    )
-            hams_list.append(H0 + Hplus)
-        return hams_list
-
-
-
 class DownPulse(Pulse):
     """
     Represents a Raman pulse in the negative direction.
@@ -136,33 +103,6 @@ class DownPulse(Pulse):
         self.type = 'down'
         self.type_int = 1
 
-    def gen_ham_list(self, basis, doppler_shift):
-        """
-        Generates list of Hamiltonians at each time interval of the pulse
-        H = H0 + Hminus
-        Chosen to be a list of ndarrays instead of a singular ndarray to make concatenation easier with other pulses.
-        
-        Args:
-            basis (numpy.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
-            doppler_shift (float): Doppler shift detuning in 2pi*Hz.
-
-        Returns:
-            list[np.ndarray]: A list of 2D arrays where each element of the list is the pulse Hamiltonian at a specific time interval.
-        """
-        hams_list = []
-        for i in range(len(self.phase)):
-            H0 = gen_ham_free(basis = basis,
-                  delta_L = self.laser_det[i], 
-                  delta_D = doppler_shift,
-                  delta_R = dR,
-            )
-            Hminus = gen_ham_minus(basis = basis,
-                        phi_L = self.phase[i],
-                        omega_R_minus = self.rabi_freq[i],
-                    )
-            hams_list.append(H0 + Hminus)
-        return hams_list
-
 class FreeEvolution(Pulse):
     """
     Represents a period of free evolution.
@@ -188,29 +128,6 @@ class FreeEvolution(Pulse):
         self.type = 'free'
         self.type_int = 2
 
-    def gen_ham_list(self, basis, doppler_shift):
-        """
-        Generates list of Hamiltonians at each time interval of the free evolution period
-        H = H0
-        Chosen to be a list of ndarrays instead of a singular ndarray to make concatenation easier with other pulses.
-        
-        Args:
-            basis (numpy.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
-            doppler_shift (float): Doppler shift detuning in 2pi*Hz.
-
-        Returns:
-            list[np.ndarray]: A list of 2D arrays where each element of the list is the pulse Hamiltonian at a specific time interval.
-        """
-        hams_list = []
-        for i in range(len(self.laser_det)):
-            H0 = gen_ham_free(basis = basis,
-                  delta_L = self.laser_det[i], 
-                  delta_D = doppler_shift,
-                  delta_R = dR,
-            )
-            hams_list.append(H0)
-        return hams_list
-
 class PulseSequence:
     """
     Represents an ordered sequence of Pulse objects.
@@ -234,7 +151,6 @@ class PulseSequence:
     rabis: np.ndarray
     detunings: np.ndarray
     phases: np.ndarray
-    hams: np.ndarray
     pulse_types: np.ndarray
 
     def __init__(self):
@@ -242,7 +158,6 @@ class PulseSequence:
         self.rabis = np.array([])
         self.detunings = np.array([])
         self.phases = np.array([])
-        self.hams = np.array([])
         self.pulse_types = np.array([])
 
     def add_pulses(self, pulse_object):
@@ -284,24 +199,6 @@ class PulseSequence:
         for pulse in self.pulses:
             count += len(pulse.laser_det)
         return count
-    
-    def gen_hams(self, basis, doppler_shift):
-        """
-        Iterates through each pulse and concatenates all the Hamiltonians to create a single Hamiltonian (as a function of time) for the entire pulse sequence.
-        Saves pulse sequence hamiltonian in hams. Also updates times to contain the time steps for the whole sequence.
-
-        Args:
-            basis (numpy.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
-            doppler_shift (float): Doppler shift detuning in 2pi*Hz.
-        """
-        times_list = [np.array([0])]
-        hams_list = []
-        for pulse in self.pulses:
-            pulse_n_steps = len(pulse.laser_det)
-            times_list.append(np.linspace(times_list[-1][-1], times_list[-1][-1] + pulse.duration, pulse_n_steps + 1)[1:])
-            hams_list += pulse.gen_ham_list(basis=basis, doppler_shift=doppler_shift)
-        self.times = np.concatenate(times_list)
-        self.hams = np.array(hams_list)    
 
     def build_seq(self):
         """

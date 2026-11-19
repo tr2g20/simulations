@@ -2,22 +2,24 @@ import numpy as np
 from scipy.constants import hbar
 from sim_library.constants import k_eff, kb, m, dR, pi
 from sim_library.sequences import PulseSequence, RR3_gate
-from sim_library.time_evolution import time_evolve, gen_ham_free, gen_ham_minus, gen_ham_plus, evolve_uppulse, evolve_downpulse, evolve_free
+from sim_library.time_evolution import evolve_uppulse, evolve_downpulse, evolve_free
 from sim_library.data_io import save_p_dists
 from datetime import date
 from pathlib import Path
 from numba import njit
 
 @njit
-def gen_state_fractions(state_fractions_grid: np.ndarray, state_vec: np.ndarray, 
+def gen_state_fractions(state_fractions_grid: np.ndarray, state_vec: np.ndarray,
                         basis: np.ndarray, initial_state: np.ndarray, init_mom_dist: np.ndarray, beam_profile: np.ndarray, rabis: np.ndarray, detunings: np.ndarray, phases: np.ndarray, times: np.ndarray, pulse_types: np.ndarray):
     """
     Core Numba-compiled engine that calculates the state fractions for an ensemble of atoms over a sequence of pulses.
-    This function modifies the pre-allocated workspaces in-place to ensure zero-allocation performance during high-frequency loops.
+    Time evolution uses the analytical solutions (evolve_uppulse, evolve_downpulse, evolve_free) rather than
+    numerical diagonalisation of the Hamiltonian.
+    This function modifies the pre-allocated workspace in-place.
 
     Args:
         state_fractions_grid (np.ndarray): 3D pre-allocated workspace of shape (time steps, basis length, N) where probability weights will be written. Modified in-place.
-        state_vec (np.ndarray): 1D pre-allocated buffer array of shape (basis length,) used for time evolution calculations. Modified in-place.
+        state_vec (np.ndarray): 1D pre-allocated buffer array of shape (basis length,) holding the working state vector. Modified in-place.
         basis (np.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
         initial_state (np.ndarray): The initial momentum state vector of a single atom (elements are np.complex128).
         init_mom_dist (np.ndarray): 1D array of the initial momentum distribution of the ensemble.
@@ -26,30 +28,37 @@ def gen_state_fractions(state_fractions_grid: np.ndarray, state_vec: np.ndarray,
         detunings (np.ndarray): 1D array of laser detunings at each discrete time step in 2pi*Hz.
         phases (np.ndarray): 1D array of laser phases at each discrete time step.
         times (np.ndarray): 1D array of absolute time points for the sequence.
-        pulse_types (np.ndarray): 1D array of pulse type identifiers (0 for Up, 1 for Down) at each time step.
+        pulse_types (np.ndarray): 1D array of pulse type identifiers (0 for Up, 1 for Down, 2 for Free) at each time step.
     """
-    
-    n_steps = len(phases) + 1
+
+    n_steps = len(phases) + 1  # times is one longer than the other arrays
     n_atoms = len(init_mom_dist)
-    
+
     state_fractions_grid[0, :, :] = np.abs(initial_state)[:, np.newaxis]**2
 
     for v in range(n_atoms):
-        state_vec[:] = initial_state # reset back to initial state for each atom
+        state_vec[:] = initial_state  # reset back to initial state for each atom
+
+        # Doppler shift is fixed for each atom, so calculate it once outside the time loop
+        delta_D = k_eff*init_mom_dist[v]/m
+
+        # Scales the preset Rabi frequency to simulate intensity noise, also fixed per atom
+        beam_scale = beam_profile[v]
 
         for t in range(1, n_steps):
-            atom_veloc = init_mom_dist[v]/m
-            ham = gen_ham_free(basis, detunings[t-1], k_eff*atom_veloc, dR)
+            dt = times[t] - times[t-1]
+            ptype = pulse_types[t-1]
 
-            adjusted_rabi = beam_profile[v]*rabis[t-1] # increases or decreases the preset rabi frequency to simulate intensity noise
-            
-            if pulse_types[t-1] == 0:    # UpPulse
-                ham += gen_ham_plus(basis, phases[t-1], adjusted_rabi)
-            elif pulse_types[t-1] == 1:  # DownPulse
-                ham += gen_ham_minus(basis, phases[t-1], adjusted_rabi)
+            # Argument order follows each evolve_* signature:
+            # (dt, state_vec, [omega_R], [phi_L], delta_D, delta_R, delta_L, basis)
+            if ptype == 0:    # Up pulse
+                state_vec = evolve_uppulse(dt, state_vec, beam_scale*rabis[t-1], phases[t-1], delta_D, dR, detunings[t-1], basis)
+            elif ptype == 1:  # Down pulse
+                state_vec = evolve_downpulse(dt, state_vec, beam_scale*rabis[t-1], phases[t-1], delta_D, dR, detunings[t-1], basis)
+            else:             # Free evolution (no Rabi frequency or phase)
+                state_vec = evolve_free(dt, state_vec, delta_D, dR, detunings[t-1], basis)
 
-            state_vec = time_evolve(state_vec, times[t]-times[t-1], ham) # times is one longer than other arrays
-            state_fractions_grid[t,:,v] = np.abs(state_vec)**2
+            state_fractions_grid[t, :, v] = np.abs(state_vec)**2
 
 def simulate_pulses_p_dist(pulse_seq: PulseSequence, Temp: float, no_atoms: int, basis: np.ndarray, initial_state: np.ndarray, beam_profile: np.ndarray):
     """
@@ -166,51 +175,6 @@ def simulate_pulses_p_dist_custom(pulse_seq: PulseSequence, init_mom_dist: np.nd
     return mom_dist, state_fractions, mom_dist_grid, state_fractions_grid
 
 def simulate_pulses_single_atom(pulse_seq: PulseSequence, basis: np.ndarray, initial_state: np.ndarray, d_shift: float = 0) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Simulates a given sequence of pulses on the given initial state for a single atom.
-    Time evolution is calculated using numerical solutions of TDSE.
-    By default the atom has no doppler shift but this can be changed with d_shift.
-    The output is the state vector as a function of time.
-
-    Args:
-        pulse_seq (PulseSequence): The ordered sequence of pulses to be applied to each atom.
-        basis (np.ndarray): The 1D array of momentum basis states (in integers of hbar*k_eff).
-        initial_state (np.ndarray): The initial momentum state vector of a single atom (elements are np.complex128). 
-                                       
-    Returns:
-        wave_func (np.ndarray): A 2D array of the wave function at every time step.
-        times (np.ndarray): A 1D array of each time step (in seconds).
-
-    Raises:
-        TypeError: If initial_state is not a complex np.ndarray.
-        ValueError: If list of pulses is empty.
-    """
-    # Checks the initial state vector is a complex np.ndarray
-    if not np.issubdtype(initial_state.dtype, np.complexfloating):
-        raise TypeError(f"The 'initial_state' array must have a complex dtype (e.g., np.complex128), but received {initial_state.dtype}.")
-
-    if len(pulse_seq.pulses) <= 0:
-        raise ValueError("List of pulses is empty")
-    
-    pulse_seq.gen_hams(basis= basis, doppler_shift= d_shift)
-    hams = pulse_seq.hams
-    times = pulse_seq.times
-
-    n_steps = len(times)
-
-    state_vec = initial_state
-
-    wave_func = np.zeros((len(basis), n_steps), dtype=np.complex128)
-
-    wave_func[:,0] = state_vec
-
-    for t in range(1,n_steps):
-        state_vec = time_evolve(state_vec= state_vec, dt = times[t]-times[t-1], H = hams[t-1]) # hams is one shorter than times
-        wave_func[:,t] = state_vec
-
-    return np.transpose(wave_func), times
-
-def simulate_pulses_single_atom_analyt(pulse_seq: PulseSequence, basis: np.ndarray, initial_state: np.ndarray, d_shift: float = 0) -> tuple[np.ndarray, np.ndarray]:
     """
     Simulates a given sequence of pulses on the given initial state for a single atom.
     Time evolution is calculated using analytical expressions of time-dependent state amplitudes.
